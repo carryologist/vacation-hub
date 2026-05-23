@@ -181,6 +181,100 @@ function WizardInput({
   );
 }
 
+// ─── Summary helpers (outside component for stable identity) ──────────────────
+
+function SummaryCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '1rem', border: '1px solid var(--border)' }}>
+      <h4 style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
+
+function SummaryRow({ label, value, truncate }: { label: string; value: string; truncate?: boolean }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', alignItems: 'baseline' }}>
+      <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', minWidth: 80, flexShrink: 0 }}>{label}:</span>
+      <span
+        style={{
+          fontSize: '0.875rem',
+          color: 'var(--text-primary)',
+          ...(truncate ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : {}),
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function WizardProgressBar({ step }: { step: number }) {
+  return (
+    <div style={{ marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {STEP_LABELS.map((label, i) => {
+          const stepNum = i + 1;
+          const isActive = stepNum === step;
+          const isComplete = stepNum < step;
+          return (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < STEP_LABELS.length - 1 ? 1 : 'none' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '0.8125rem',
+                    background: isActive ? 'var(--brand)' : isComplete ? 'var(--accent-green)' : 'var(--bg-elevated)',
+                    color: isActive || isComplete ? '#fff' : 'var(--text-muted)',
+                    border: isActive ? 'none' : '2px solid ' + (isComplete ? 'var(--accent-green)' : 'var(--border)'),
+                    transition: 'all 0.2s',
+                    flexShrink: 0,
+                  }}
+                >
+                  {isComplete ? '\u2713' : stepNum}
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    color: isActive ? 'var(--brand)' : isComplete ? 'var(--accent-green)' : 'var(--text-muted)',
+                    fontWeight: isActive ? 600 : 400,
+                    marginTop: 4,
+                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                  }}
+                  className="hidden sm:block"
+                >
+                  {label}
+                </span>
+              </div>
+              {i < STEP_LABELS.length - 1 && (
+                <div
+                  style={{
+                    flex: 1,
+                    height: 2,
+                    background: isComplete ? 'var(--accent-green)' : 'var(--border)',
+                    margin: '0 0.5rem',
+                    marginBottom: '1rem',
+                    transition: 'background 0.2s',
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = {
@@ -526,70 +620,6 @@ export default function SetupWizard() {
       setIsLaunching(false);
     }
   };
-
-  // ─── Progress Bar ─────────────────────────────────────────────────────────
-
-  const ProgressBar = () => (
-    <div style={{ marginBottom: '2rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {STEP_LABELS.map((label, i) => {
-          const stepNum = i + 1;
-          const isActive = stepNum === step;
-          const isComplete = stepNum < step;
-          return (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < STEP_LABELS.length - 1 ? 1 : 'none' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: '0.8125rem',
-                    background: isActive ? 'var(--brand)' : isComplete ? 'var(--accent-green)' : 'var(--bg-elevated)',
-                    color: isActive || isComplete ? '#fff' : 'var(--text-muted)',
-                    border: isActive ? 'none' : '2px solid ' + (isComplete ? 'var(--accent-green)' : 'var(--border)'),
-                    transition: 'all 0.2s',
-                    flexShrink: 0,
-                  }}
-                >
-                  {isComplete ? '✓' : stepNum}
-                </div>
-                <span
-                  style={{
-                    fontSize: '0.6875rem',
-                    color: isActive ? 'var(--brand)' : isComplete ? 'var(--accent-green)' : 'var(--text-muted)',
-                    fontWeight: isActive ? 600 : 400,
-                    marginTop: 4,
-                    whiteSpace: 'nowrap',
-                    textAlign: 'center',
-                  }}
-                  className="hidden sm:block"
-                >
-                  {label}
-                </span>
-              </div>
-              {i < STEP_LABELS.length - 1 && (
-                <div
-                  style={{
-                    flex: 1,
-                    height: 2,
-                    background: isComplete ? 'var(--accent-green)' : 'var(--border)',
-                    margin: '0 0.5rem',
-                    marginBottom: '1rem',
-                    transition: 'background 0.2s',
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 
   // ─── Step Renderers ───────────────────────────────────────────────────────
 
@@ -1051,32 +1081,6 @@ export default function SetupWizard() {
     );
   };
 
-  // ─── Summary helpers ──────────────────────────────────────────────────────
-
-  const SummaryCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '1rem', border: '1px solid var(--border)' }}>
-      <h4 style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-        {title}
-      </h4>
-      {children}
-    </div>
-  );
-
-  const SummaryRow = ({ label, value, truncate }: { label: string; value: string; truncate?: boolean }) => (
-    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', alignItems: 'baseline' }}>
-      <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', minWidth: 80, flexShrink: 0 }}>{label}:</span>
-      <span
-        style={{
-          fontSize: '0.875rem',
-          color: 'var(--text-primary)',
-          ...(truncate ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } : {}),
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-
   // ─── Render ───────────────────────────────────────────────────────────────
 
   const renderCurrentStep = () => {
@@ -1111,7 +1115,7 @@ export default function SetupWizard() {
         </p>
       </div>
 
-      <ProgressBar />
+      <WizardProgressBar step={step} />
 
       {/* Step content */}
       <div style={cardStyle}>
