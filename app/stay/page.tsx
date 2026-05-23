@@ -3,8 +3,14 @@ import PhotoCarousel from "../../components/PhotoCarousel";
 import GoogleMapsWidget from "../../components/GoogleMapsWidget";
 import { getConfig, Lodging } from "@/lib/config";
 
+function normalizeImageUrls(urls: string[] | string | undefined): string[] {
+  if (!urls) return [];
+  if (typeof urls === 'string') return urls.split(',').map(u => u.trim()).filter(Boolean);
+  return urls;
+}
+
 function LodgingCard({ lodging, index }: { lodging: Lodging; index: number }) {
-  const photos = (lodging.imageUrls ?? []).map((url, i) => ({
+  const photos = normalizeImageUrls(lodging.imageUrls).map((url, i) => ({
     id: `${index}-${i}`,
     url,
     caption: `${lodging.name} — Photo ${i + 1}`,
@@ -178,7 +184,7 @@ export default async function StayInfo() {
   // Single lodging — full-page layout
   if (lodgings.length === 1) {
     const lodging = lodgings[0];
-    const photos = (lodging.imageUrls ?? []).map((url, i) => ({
+    const photos = normalizeImageUrls(lodging.imageUrls).map((url, i) => ({
       id: String(i + 1),
       url,
       caption: `${lodging.name} — Photo ${i + 1}`,

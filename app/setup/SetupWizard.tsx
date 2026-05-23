@@ -481,7 +481,13 @@ export default function SetupWizard() {
         timezone: state.timezone,
         brandColor: state.brandColor,
         heroImageUrl: state.heroImageUrl,
-        lodgings: state.lodgings.filter(l => l.name.trim()),
+        lodgings: state.lodgings.filter(l => l.name.trim()).map(l => ({
+          ...l,
+          imageUrls: l.imageUrls
+            ? l.imageUrls.split(',').map(u => u.trim()).filter(Boolean)
+            : [],
+          highlights: l.highlights.filter(h => h.key.trim() || h.value.trim()),
+        })),
         password: state.password,
         llmProvider: state.skipAI ? null : state.llmProvider,
         llmApiKey: state.skipAI ? '' : state.llmApiKey,
