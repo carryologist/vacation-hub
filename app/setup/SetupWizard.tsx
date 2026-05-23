@@ -149,12 +149,14 @@ function WizardInput({
   onChange,
   placeholder,
   type = 'text',
+  onBlur: onBlurProp,
 }: {
   name?: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  onBlur?: () => void;
 }) {
   return (
     <input
@@ -174,7 +176,7 @@ function WizardInput({
         transition: 'border-color 0.15s',
       }}
       onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand)'; }}
-      onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+      onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; onBlurProp?.(); }}
     />
   );
 }
@@ -282,6 +284,49 @@ export default function SetupWizard() {
     setState(prev => {
       const lodgings = [...prev.lodgings];
       lodgings[index] = { ...lodgings[index], [field]: value };
+      return { ...prev, lodgings };
+    });
+    setErrors({});
+    setStepAttempted(false);
+  }, []);
+
+  // Auto-populate lodging address, URL, and dates from the name + destination
+  const autofillLodging = useCallback((index: number) => {
+    setState(prev => {
+      const lodging = prev.lodgings[index];
+      const name = lodging.name.trim();
+      if (!name) return prev;
+
+      const destination = prev.destination.trim();
+      const lodgings = [...prev.lodgings];
+      const updated = { ...lodgings[index] };
+      let changed = false;
+
+      // Auto-fill address if empty
+      if (!updated.address.trim() && destination) {
+        updated.address = `${name}, ${destination}`;
+        changed = true;
+      }
+
+      // Auto-fill URL if empty — Google Maps search link
+      if (!updated.url.trim()) {
+        const query = encodeURIComponent(destination ? `${name} ${destination}` : name);
+        updated.url = `https://www.google.com/maps/search/${query}`;
+        changed = true;
+      }
+
+      // Auto-fill check-in/out dates from trip dates if empty
+      if (!updated.checkIn && prev.startDate) {
+        updated.checkIn = prev.startDate;
+        changed = true;
+      }
+      if (!updated.checkOut && prev.endDate) {
+        updated.checkOut = prev.endDate;
+        changed = true;
+      }
+
+      if (!changed) return prev;
+      lodgings[index] = updated;
       return { ...prev, lodgings };
     });
   }, []);
@@ -704,7 +749,7 @@ export default function SetupWizard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Name</label>
-              <WizardInput name={`lodging-${li}-name`} value={lodging.name} onChange={v => updateLodging(li, 'name', v)} placeholder="e.g. Beach House" />
+              <WizardInput name={`lodging-${li}-name`} value={lodging.name} onChange={v => updateLodging(li, 'name', v)} placeholder="e.g. Beach House" onBlur={() => autofillLodging(li)} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Address</label>
