@@ -595,10 +595,13 @@ export default function SetupWizard() {
       });
       if (!configRes.ok) {
         const data = await configRes.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save configuration');
+        throw new Error(data.error || `Config save failed (${configRes.status})`);
       }
 
-      // 2. Authenticate (auto-login after setup)
+      // 2. Init database tables
+      await fetch('/api/db/init', { method: 'POST' }).catch(() => {});
+
+      // 3. Authenticate (auto-login after setup)
       const authRes = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -606,16 +609,19 @@ export default function SetupWizard() {
       });
       if (!authRes.ok) {
         // Auth failed but config is saved — redirect to password page instead
-        console.warn('Auto-login after setup failed, redirecting to password page');
-        router.push('/password');
+        window.location.href = '/password';
         return;
       }
 
-      // 3. Redirect
-      router.push('/');
+      // 4. Redirect
+      window.location.href = '/';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Launch failed';
       setLaunchError(message);
+      // Scroll error into view
+      setTimeout(() => {
+        document.querySelector('[data-launch-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
     } finally {
       setIsLaunching(false);
     }
@@ -1055,7 +1061,7 @@ export default function SetupWizard() {
         </div>
 
         {launchError && (
-          <div style={{ marginTop: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--accent-red)', borderRadius: 8, padding: '0.875rem' }}>
+          <div data-launch-error style={{ marginTop: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--accent-red)', borderRadius: 8, padding: '0.875rem' }}>
             <p style={{ color: 'var(--accent-red)', fontSize: '0.875rem' }}>{launchError}</p>
           </div>
         )}
