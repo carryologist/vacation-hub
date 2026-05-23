@@ -116,6 +116,69 @@ const DEFAULT_STATE: WizardState = {
   skipAI: false,
 };
 
+// ─── Reusable Sub-components (defined outside to preserve identity across renders)
+
+function WizardField({ label, name, errors, stepAttempted, children }: {
+  label: string;
+  name: string;
+  errors: Record<string, string>;
+  stepAttempted: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <label style={{
+        display: 'block',
+        fontSize: '0.8125rem',
+        fontWeight: 600,
+        color: 'var(--text-secondary)',
+        marginBottom: '0.375rem',
+      }}>{label}</label>
+      {children}
+      {stepAttempted && errors[name] && (
+        <p style={{ color: 'var(--accent-red)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
+          {errors[name]}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function WizardInput({
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  name?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{
+        width: '100%',
+        padding: '0.625rem 0.875rem',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
+        color: 'var(--text-primary)',
+        fontSize: '0.9375rem',
+        outline: 'none',
+        transition: 'border-color 0.15s',
+      }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand)'; }}
+      onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+    />
+  );
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = {
@@ -473,39 +536,6 @@ export default function SetupWizard() {
     </div>
   );
 
-  // ─── Field Helpers ────────────────────────────────────────────────────────
-
-  const Field = ({ label, name, children }: { label: string; name: string; children: React.ReactNode }) => (
-    <div style={{ marginBottom: '1rem' }}>
-      <label style={labelStyle}>{label}</label>
-      {children}
-      {stepAttempted && errors[name] && <p style={errorStyle}>{errors[name]}</p>}
-    </div>
-  );
-
-  const Input = ({
-    value,
-    onChange,
-    placeholder,
-    type = 'text',
-  }: {
-    name?: string;
-    value: string;
-    onChange: (v: string) => void;
-    placeholder?: string;
-    type?: string;
-  }) => (
-    <input
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={inputStyle}
-      onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand)'; }}
-      onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
-    />
-  );
-
   // ─── Step Renderers ───────────────────────────────────────────────────────
 
   const renderStep1 = () => (
@@ -517,28 +547,28 @@ export default function SetupWizard() {
         Tell us about your trip — the essentials.
       </p>
 
-      <Field label="Trip Name *" name="tripName">
-        <Input name="tripName" value={state.tripName} onChange={v => update('tripName', v)} placeholder="e.g. Beach Week 2026" />
-      </Field>
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Trip Name *" name="tripName">
+        <WizardInput name="tripName" value={state.tripName} onChange={v => update('tripName', v)} placeholder="e.g. Beach Week 2026" />
+      </WizardField>
 
-      <Field label="Destination *" name="destination">
-        <Input name="destination" value={state.destination} onChange={v => update('destination', v)} placeholder="e.g. Tulum, Mexico" />
-      </Field>
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Destination *" name="destination">
+        <WizardInput name="destination" value={state.destination} onChange={v => update('destination', v)} placeholder="e.g. Tulum, Mexico" />
+      </WizardField>
 
-      <Field label="Tagline" name="tagline">
-        <Input name="tagline" value={state.tagline} onChange={v => update('tagline', v)} placeholder="e.g. Sun, sand, and good times" />
-      </Field>
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Tagline" name="tagline">
+        <WizardInput name="tagline" value={state.tagline} onChange={v => update('tagline', v)} placeholder="e.g. Sun, sand, and good times" />
+      </WizardField>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-        <Field label="Start Date *" name="startDate">
-          <Input name="startDate" type="date" value={state.startDate} onChange={v => update('startDate', v)} />
-        </Field>
-        <Field label="End Date *" name="endDate">
-          <Input name="endDate" type="date" value={state.endDate} onChange={v => update('endDate', v)} />
-        </Field>
+        <WizardField errors={errors} stepAttempted={stepAttempted} label="Start Date *" name="startDate">
+          <WizardInput name="startDate" type="date" value={state.startDate} onChange={v => update('startDate', v)} />
+        </WizardField>
+        <WizardField errors={errors} stepAttempted={stepAttempted} label="End Date *" name="endDate">
+          <WizardInput name="endDate" type="date" value={state.endDate} onChange={v => update('endDate', v)} />
+        </WizardField>
       </div>
 
-      <Field label="Timezone" name="timezone">
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Timezone" name="timezone">
         <select
           value={state.timezone}
           onChange={e => update('timezone', e.target.value)}
@@ -548,7 +578,7 @@ export default function SetupWizard() {
             <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
           ))}
         </select>
-      </Field>
+      </WizardField>
     </div>
   );
 
@@ -561,7 +591,7 @@ export default function SetupWizard() {
         Choose a brand color and optional hero image.
       </p>
 
-      <Field label="Brand Color" name="brandColor">
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Brand Color" name="brandColor">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
           {PRESET_COLORS.map(c => (
             <button
@@ -621,10 +651,10 @@ export default function SetupWizard() {
           <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Preview:</span>
           <div style={{ height: 8, flex: 1, borderRadius: 4, background: state.brandColor, transition: 'background 0.2s' }} />
         </div>
-      </Field>
+      </WizardField>
 
-      <Field label="Hero Image URL" name="heroImageUrl">
-        <Input name="heroImageUrl" value={state.heroImageUrl} onChange={v => update('heroImageUrl', v)} placeholder="https://example.com/hero.jpg" />
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Hero Image URL" name="heroImageUrl">
+        <WizardInput name="heroImageUrl" value={state.heroImageUrl} onChange={v => update('heroImageUrl', v)} placeholder="https://example.com/hero.jpg" />
         {state.heroImageUrl && (
           <div style={{ marginTop: '0.75rem', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -636,7 +666,7 @@ export default function SetupWizard() {
             />
           </div>
         )}
-      </Field>
+      </WizardField>
     </div>
   );
 
@@ -674,31 +704,31 @@ export default function SetupWizard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Name</label>
-              <Input name={`lodging-${li}-name`} value={lodging.name} onChange={v => updateLodging(li, 'name', v)} placeholder="e.g. Beach House" />
+              <WizardInput name={`lodging-${li}-name`} value={lodging.name} onChange={v => updateLodging(li, 'name', v)} placeholder="e.g. Beach House" />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Address</label>
-              <Input name={`lodging-${li}-address`} value={lodging.address} onChange={v => updateLodging(li, 'address', v)} placeholder="123 Main St, City" />
+              <WizardInput name={`lodging-${li}-address`} value={lodging.address} onChange={v => updateLodging(li, 'address', v)} placeholder="123 Main St, City" />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>URL</label>
-              <Input name={`lodging-${li}-url`} value={lodging.url} onChange={v => updateLodging(li, 'url', v)} placeholder="https://airbnb.com/rooms/..." />
+              <WizardInput name={`lodging-${li}-url`} value={lodging.url} onChange={v => updateLodging(li, 'url', v)} placeholder="https://airbnb.com/rooms/..." />
             </div>
             <div>
               <label style={labelStyle}>Check-in Date</label>
-              <Input name={`lodging-${li}-checkIn`} type="date" value={lodging.checkIn} onChange={v => updateLodging(li, 'checkIn', v)} />
+              <WizardInput name={`lodging-${li}-checkIn`} type="date" value={lodging.checkIn} onChange={v => updateLodging(li, 'checkIn', v)} />
             </div>
             <div>
               <label style={labelStyle}>Check-out Date</label>
-              <Input name={`lodging-${li}-checkOut`} type="date" value={lodging.checkOut} onChange={v => updateLodging(li, 'checkOut', v)} />
+              <WizardInput name={`lodging-${li}-checkOut`} type="date" value={lodging.checkOut} onChange={v => updateLodging(li, 'checkOut', v)} />
             </div>
             <div>
               <label style={labelStyle}>Check-in Time</label>
-              <Input name={`lodging-${li}-checkInTime`} type="time" value={lodging.checkInTime} onChange={v => updateLodging(li, 'checkInTime', v)} />
+              <WizardInput name={`lodging-${li}-checkInTime`} type="time" value={lodging.checkInTime} onChange={v => updateLodging(li, 'checkInTime', v)} />
             </div>
             <div>
               <label style={labelStyle}>Check-out Time</label>
-              <Input name={`lodging-${li}-checkOutTime`} type="time" value={lodging.checkOutTime} onChange={v => updateLodging(li, 'checkOutTime', v)} />
+              <WizardInput name={`lodging-${li}-checkOutTime`} type="time" value={lodging.checkOutTime} onChange={v => updateLodging(li, 'checkOutTime', v)} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Description</label>
@@ -714,7 +744,7 @@ export default function SetupWizard() {
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Image URLs (comma-separated)</label>
-              <Input name={`lodging-${li}-imageUrls`} value={lodging.imageUrls} onChange={v => updateLodging(li, 'imageUrls', v)} placeholder="https://img1.jpg, https://img2.jpg" />
+              <WizardInput name={`lodging-${li}-imageUrls`} value={lodging.imageUrls} onChange={v => updateLodging(li, 'imageUrls', v)} placeholder="https://img1.jpg, https://img2.jpg" />
             </div>
           </div>
 
@@ -775,13 +805,13 @@ export default function SetupWizard() {
         Protect your trip hub with a password. Share it with your group.
       </p>
 
-      <Field label="Password *" name="password">
-        <Input name="password" type="password" value={state.password} onChange={v => update('password', v)} placeholder="Minimum 4 characters" />
-      </Field>
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Password *" name="password">
+        <WizardInput name="password" type="password" value={state.password} onChange={v => update('password', v)} placeholder="Minimum 4 characters" />
+      </WizardField>
 
-      <Field label="Confirm Password *" name="passwordConfirm">
-        <Input name="passwordConfirm" type="password" value={state.passwordConfirm} onChange={v => update('passwordConfirm', v)} placeholder="Re-enter password" />
-      </Field>
+      <WizardField errors={errors} stepAttempted={stepAttempted} label="Confirm Password *" name="passwordConfirm">
+        <WizardInput name="passwordConfirm" type="password" value={state.passwordConfirm} onChange={v => update('passwordConfirm', v)} placeholder="Re-enter password" />
+      </WizardField>
 
       <div style={{ background: 'var(--brand-light)', borderRadius: 8, padding: '0.875rem', marginTop: '0.5rem' }}>
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
@@ -814,7 +844,7 @@ export default function SetupWizard() {
 
       {!state.skipAI && (
         <>
-          <Field label="LLM Provider" name="llmProvider">
+          <WizardField errors={errors} stepAttempted={stepAttempted} label="LLM Provider" name="llmProvider">
             <select
               value={state.llmProvider ?? ''}
               onChange={e => update('llmProvider', (e.target.value || null) as WizardState['llmProvider'])}
@@ -825,11 +855,11 @@ export default function SetupWizard() {
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="gemini">Google (Gemini)</option>
             </select>
-          </Field>
+          </WizardField>
 
-          <Field label="API Key" name="llmApiKey">
-            <Input name="llmApiKey" type="password" value={state.llmApiKey} onChange={v => update('llmApiKey', v)} placeholder="sk-..." />
-          </Field>
+          <WizardField errors={errors} stepAttempted={stepAttempted} label="API Key" name="llmApiKey">
+            <WizardInput name="llmApiKey" type="password" value={state.llmApiKey} onChange={v => update('llmApiKey', v)} placeholder="sk-..." />
+          </WizardField>
 
           <button
             type="button"
