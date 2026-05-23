@@ -56,7 +56,7 @@ export default async function Home() {
             </p>
             {/* Countdown */}
             <div className="mb-8">
-              <Countdown targetDate={endDate} label="Trip Countdown" sublabel={`${tripName} · ${startDate} – ${endDate}`} />
+              <Countdown targetDate={startDate} endDate={endDate} tripName={tripName} />
             </div>
 
             {/* Primary & Secondary CTA Buttons */}

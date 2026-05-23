@@ -517,15 +517,15 @@ export default function SetupWizard() {
       </p>
 
       <Field label="Trip Name *" name="tripName">
-        <Input name="tripName" value={state.tripName} onChange={v => update('tripName', v)} placeholder="e.g. Montreal F1 2026" />
+        <Input name="tripName" value={state.tripName} onChange={v => update('tripName', v)} placeholder="e.g. Beach Week 2026" />
       </Field>
 
       <Field label="Destination *" name="destination">
-        <Input name="destination" value={state.destination} onChange={v => update('destination', v)} placeholder="e.g. Montreal, QC, Canada" />
+        <Input name="destination" value={state.destination} onChange={v => update('destination', v)} placeholder="e.g. Tulum, Mexico" />
       </Field>
 
       <Field label="Tagline" name="tagline">
-        <Input name="tagline" value={state.tagline} onChange={v => update('tagline', v)} placeholder="e.g. The ultimate F1 experience" />
+        <Input name="tagline" value={state.tagline} onChange={v => update('tagline', v)} placeholder="e.g. Sun, sand, and good times" />
       </Field>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

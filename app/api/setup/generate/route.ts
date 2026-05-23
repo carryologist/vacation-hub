@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
           title: activity.title,
           description: activity.description,
           category: activity.category,
-          location: activity.location || null,
-          url: activity.website || null,
+          location: activity.location || undefined,
+          url: activity.website || undefined,
           suggested_by: 'AI',
-          image_url: null,
+          image_url: undefined,
         });
         saved++;
       } catch (err) {

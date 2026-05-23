@@ -9,44 +9,54 @@ interface TimeLeft {
 }
 
 interface CountdownProps {
-  targetDate: string
-  label: string
-  sublabel: string
+  targetDate?: string;  // YYYY-MM-DD (start date of trip)
+  endDate?: string;     // YYYY-MM-DD (end date of trip)
+  tripName?: string;
 }
 
-export default function Countdown({ targetDate, label, sublabel }: CountdownProps) {
+export default function Countdown({ targetDate, endDate, tripName: _tripName }: CountdownProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [mounted, setMounted] = useState(false)
   const [isEventHere, setIsEventHere] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    
-    const target = new Date(targetDate)
-    
+
+    // Count down to the start date; if we're past start but before end, show "It's happening!"
+    const startStr = targetDate || '2026-01-01'
+    const endStr = endDate || startStr
+    const start = new Date(startStr + 'T00:00:00')
+    const end = new Date(endStr + 'T23:59:59')
+
     const updateCountdown = () => {
       const now = new Date().getTime()
-      const distance = target.getTime() - now
-      
-      if (distance > 0) {
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24))
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000)
-        
+      const distanceToStart = start.getTime() - now
+      const distanceToEnd = end.getTime() - now
+
+      if (distanceToStart > 0) {
+        // Before event
+        const days = Math.floor(distanceToStart / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((distanceToStart % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((distanceToStart % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((distanceToStart % (1000 * 60)) / 1000)
         setTimeLeft({ days, hours, minutes, seconds })
         setIsEventHere(false)
+      } else if (distanceToEnd > 0) {
+        // During event
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+        setIsEventHere(true)
       } else {
+        // After event
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 })
         setIsEventHere(true)
       }
     }
-    
+
     updateCountdown()
     const interval = setInterval(updateCountdown, 1000)
-    
+
     return () => clearInterval(interval)
-  }, [targetDate])
+  }, [targetDate, endDate])
 
   if (!mounted) {
     return (
@@ -58,6 +68,8 @@ export default function Countdown({ targetDate, label, sublabel }: CountdownProp
       </div>
     )
   }
+
+  const dateLabel = targetDate && endDate ? `${targetDate} – ${endDate}` : ''
 
   return (
     <div className="flex justify-center items-center py-8">
@@ -73,20 +85,22 @@ export default function Countdown({ targetDate, label, sublabel }: CountdownProp
             className="font-display font-semibold text-sm uppercase mb-1"
             style={{ color: 'var(--text-secondary)', letterSpacing: '0.1em' }}
           >
-            {label}
+            Countdown
           </h3>
-          <p
-            className="text-xs"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            {sublabel}
-          </p>
+          {dateLabel && (
+            <p
+              className="text-xs"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {dateLabel}
+            </p>
+          )}
         </div>
-        
+
         {isEventHere ? (
           <div className="text-center py-4">
             <div className="font-display text-2xl sm:text-3xl font-bold" style={{ color: 'var(--brand)' }}>
-              The Event Is Here! 🎉
+              The Trip Is Here! 🎉
             </div>
           </div>
         ) : (

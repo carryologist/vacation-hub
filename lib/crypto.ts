@@ -1,12 +1,10 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 
 function getSecret(): Buffer | null {
   const secret = process.env.VACATION_HUB_SECRET;
   if (!secret) return null;
-  // Derive a 32-byte key from the secret
-  const { createHash } = require('crypto');
   return createHash('sha256').update(secret).digest();
 }
 

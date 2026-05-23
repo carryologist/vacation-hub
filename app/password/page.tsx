@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 
-interface PasswordPageProps {}
-
 export default function PasswordPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

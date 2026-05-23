@@ -22,6 +22,7 @@ export interface VacationConfig {
   lodgings: Lodging[];
   passwordHash?: string;
   llmApiKeyEncrypted?: string;
+  llmProvider?: string;
   setupComplete: boolean;
 }
 

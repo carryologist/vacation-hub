@@ -206,10 +206,14 @@ function ActivityCard({
 
 export default function ThingsToDoClient({ 
   initialActivities,
-  initialUserSuggestions 
+  initialUserSuggestions,
+  destination,
+  tripName,
 }: {
   initialActivities: CategoryGroup[]
   initialUserSuggestions: ActivitySuggestion[]
+  destination?: string
+  tripName?: string
 }) {
   const [activities, setActivities] = useState<CategoryGroup[]>(initialActivities)
   const [showSuggestionForm, setShowSuggestionForm] = useState(false)
@@ -471,10 +475,10 @@ export default function ThingsToDoClient({
       <div className="text-center">
         <div className="badge badge-primary mb-4">🎆 Things to Do</div>
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4">
-          Things to <span className="text-gradient">Do</span>
+          Things to Do{destination ? ` in ` : ''}{destination ? <span className="text-gradient">{destination}</span> : <span className="text-gradient"></span>}
         </h1>
         <p className="text-lg max-w-2xl mx-auto mb-8" style={{ color: 'var(--text-secondary)' }}>
-          Discover the best activities, restaurants, and attractions to enjoy during your trip.
+          Discover the best activities, restaurants, and attractions{destination ? ` in ${destination}` : ''}.
         </p>
         
         {/* Suggestion Form Toggle */}
