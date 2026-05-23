@@ -1,26 +1,37 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createHmac } from 'crypto';
 
-function verifyAuthToken(token: string, secret: string): boolean {
+async function verifyAuthToken(token: string, secret: string): Promise<boolean> {
   try {
     const [timestamp, signature] = token.split('.');
     if (!timestamp || !signature) return false;
-    const expected = createHmac('sha256', secret).update(timestamp).digest('hex');
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(timestamp));
+    const expected = Array.from(new Uint8Array(sig))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
     return signature === expected;
   } catch {
     return false;
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow static assets and API setup routes
+  // Always allow static assets and API routes
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/setup') ||
-    pathname.startsWith('/api/db') ||
+    pathname.startsWith('/api') ||
     pathname.includes('.') ||
     pathname === '/favicon.ico'
   ) {
@@ -30,25 +41,26 @@ export function middleware(request: NextRequest) {
   // Gate 1: Setup check
   const setupDone = request.cookies.get('vacation-hub-setup-done');
   if (!setupDone) {
-    // Allow /setup and /api/auth routes through (auth is needed at end of setup wizard)
-    if (pathname === '/setup' || pathname.startsWith('/setup') || pathname === '/api/auth') {
+    if (pathname === '/setup' || pathname.startsWith('/setup')) {
       return NextResponse.next();
     }
-    // Redirect everything else to /setup
     return NextResponse.redirect(new URL('/setup', request.url));
   }
 
   // Gate 2: Auth check (setup is done)
-  // Allow public routes
-  if (pathname === '/password' || pathname.startsWith('/api')) {
+  if (pathname === '/password') {
     return NextResponse.next();
   }
 
-  // Check auth cookie
+  // Also allow /setup through so users can re-run the wizard
+  if (pathname === '/setup' || pathname.startsWith('/setup')) {
+    return NextResponse.next();
+  }
+
   const authCookie = request.cookies.get('vacation-hub-auth');
   const secret = process.env.VACATION_HUB_SECRET || '';
-  
-  if (!authCookie || !secret || !verifyAuthToken(authCookie.value, secret)) {
+
+  if (!authCookie || !secret || !(await verifyAuthToken(authCookie.value, secret))) {
     return NextResponse.redirect(new URL('/password', request.url));
   }
 
