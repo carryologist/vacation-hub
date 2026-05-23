@@ -11,27 +11,22 @@ Built with Next.js 15, Tailwind CSS v4, and Vercel Postgres + Blob.
 2. **Deploy to Vercel**
 
    - Go to [vercel.com/new](https://vercel.com/new) and import your fork.
-   - In your Vercel project, go to **Storage** and add the **Postgres** and **Blob** integrations. This auto-sets `POSTGRES_URL` and `BLOB_READ_WRITE_TOKEN`.
+   - Before deploying, expand **Environment Variables** and add:
 
-3. **Set the secret**
+     | Key | Value |
+     |---|---|
+     | `VACATION_HUB_SECRET` | output of `openssl rand -hex 32` |
 
-   In your Vercel project → **Settings → Environment Variables**, add:
+     Run that command in any terminal to generate a random value, then paste it in.
+   - Hit **Deploy**.
 
-   ```
-   VACATION_HUB_SECRET=<paste-value-here>
-   ```
+3. **Add storage**
 
-   Generate a value by running this in any terminal (or use an online generator):
+   Once deployed, go to your Vercel project → **Storage** and add the **Postgres** and **Blob** integrations (both on the free tier). This auto-sets `POSTGRES_URL` and `BLOB_READ_WRITE_TOKEN`. Then redeploy once (Deployments → ··· → Redeploy).
 
-   ```bash
-   openssl rand -hex 32
-   ```
+4. **Visit your site** — the setup wizard walks you through configuring the trip name, dates, branding, lodging, password, and AI-generated activity suggestions.
 
-4. **Redeploy** — after adding the env vars, trigger a redeploy from the Vercel dashboard (Deployments → ··· → Redeploy).
-
-5. **Visit your site** — the setup wizard walks you through configuring the trip name, dates, branding, lodging, password, and AI-generated activity suggestions.
-
-6. **Share the URL + password** with your group.
+5. **Share the URL + password** with your group.
 
 ## Setup Wizard
 
