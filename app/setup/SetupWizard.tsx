@@ -199,6 +199,7 @@ export default function SetupWizard() {
   const [step, setStep] = useState(1);
   const [state, setState] = useState<WizardState>(DEFAULT_STATE);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [stepAttempted, setStepAttempted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState('');
@@ -209,11 +210,9 @@ export default function SetupWizard() {
 
   const update = useCallback(<K extends keyof WizardState>(key: K, value: WizardState[K]) => {
     setState(prev => ({ ...prev, [key]: value }));
-    setErrors(prev => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+    // Clear all errors when user starts editing — they'll revalidate on Next
+    setErrors({});
+    setStepAttempted(false);
   }, []);
 
   const updateLodging = useCallback((index: number, field: keyof LodgingFormData, value: string | LodgingHighlight[]) => {
@@ -310,15 +309,17 @@ export default function SetupWizard() {
   // ─── Navigation ───────────────────────────────────────────────────────────
 
   const next = () => {
+    setStepAttempted(true);
     if (!validate()) return;
     // Sync custom color
     if (step === 2 && useCustomColor) {
       update('brandColor', customColorInput.trim());
     }
+    setStepAttempted(false);
     setStep(s => Math.min(s + 1, TOTAL_STEPS));
   };
 
-  const back = () => setStep(s => Math.max(s - 1, 1));
+  const back = () => { setStepAttempted(false); setErrors({}); setStep(s => Math.max(s - 1, 1)); };
 
   // ─── AI Generation ────────────────────────────────────────────────────────
 
@@ -478,7 +479,7 @@ export default function SetupWizard() {
     <div style={{ marginBottom: '1rem' }}>
       <label style={labelStyle}>{label}</label>
       {children}
-      {errors[name] && <p style={errorStyle}>{errors[name]}</p>}
+      {stepAttempted && errors[name] && <p style={errorStyle}>{errors[name]}</p>}
     </div>
   );
 
