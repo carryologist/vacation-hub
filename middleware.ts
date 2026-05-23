@@ -30,8 +30,8 @@ export function middleware(request: NextRequest) {
   // Gate 1: Setup check
   const setupDone = request.cookies.get('vacation-hub-setup-done');
   if (!setupDone) {
-    // Allow /setup route through
-    if (pathname === '/setup' || pathname.startsWith('/setup')) {
+    // Allow /setup and /api/auth routes through (auth is needed at end of setup wizard)
+    if (pathname === '/setup' || pathname.startsWith('/setup') || pathname === '/api/auth') {
       return NextResponse.next();
     }
     // Redirect everything else to /setup

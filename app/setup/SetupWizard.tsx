@@ -485,6 +485,7 @@ export default function SetupWizard() {
         password: state.password,
         llmProvider: state.skipAI ? null : state.llmProvider,
         llmApiKey: state.skipAI ? '' : state.llmApiKey,
+        setupComplete: true,
       };
 
       const configRes = await fetch('/api/setup/config', {
@@ -497,14 +498,17 @@ export default function SetupWizard() {
         throw new Error(data.error || 'Failed to save configuration');
       }
 
-      // 2. Authenticate
+      // 2. Authenticate (auto-login after setup)
       const authRes = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: state.password, rememberMe: true }),
       });
       if (!authRes.ok) {
-        throw new Error('Authentication failed');
+        // Auth failed but config is saved — redirect to password page instead
+        console.warn('Auto-login after setup failed, redirecting to password page');
+        router.push('/password');
+        return;
       }
 
       // 3. Redirect
