@@ -1,4 +1,105 @@
 import { NextRequest, NextResponse } from "next/server";
+import { URL } from "url";
+
+// ---------------------------------------------------------------------------
+// URL validation helpers – prevent SSRF
+// ---------------------------------------------------------------------------
+
+/** Check whether an IPv4 string falls in a blocked private/internal range. */
+function isPrivateIPv4(ip: string): boolean {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
+    return true; // malformed → treat as blocked
+  }
+  const [a, b] = parts;
+  return (
+    a === 127 || // 127.0.0.0/8  loopback
+    a === 10 || // 10.0.0.0/8   private
+    (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+    (a === 192 && b === 168) || // 192.168.0.0/16
+    (a === 169 && b === 254) || // 169.254.0.0/16 link-local
+    a === 0 // 0.0.0.0/8
+  );
+}
+
+/** Check whether an IPv6 string is private/internal. */
+function isPrivateIPv6(raw: string): boolean {
+  const ip = raw.toLowerCase();
+  if (ip === "::1") return true; // loopback
+  if (ip.startsWith("fc") || ip.startsWith("fd")) return true; // fc00::/7 unique-local
+  if (ip.startsWith("fe80")) return true; // fe80::/10 link-local
+  if (ip === "::") return true; // unspecified
+  // IPv4-mapped IPv6  e.g. ::ffff:127.0.0.1
+  const v4Mapped = ip.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4Mapped) return isPrivateIPv4(v4Mapped[1]);
+  return false;
+}
+
+/** Rough check: is the string an IPv4 literal (possibly bracketed)? */
+function looksLikeIPv4(host: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+}
+
+/** Rough check: is the string an IPv6 literal (possibly bracketed)? */
+function looksLikeIPv6(host: string): boolean {
+  // Hostnames from URL parsing may be wrapped in brackets
+  const stripped = host.replace(/^\[|\]$/g, "");
+  return stripped.includes(":");
+}
+
+/**
+ * Validate a URL before we fetch it server-side.
+ * Returns `true` if the URL is safe, `false` otherwise.
+ */
+function isSafeUrl(input: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(input);
+  } catch {
+    return false;
+  }
+
+  // 1. Protocol must be http or https
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // 2. Block localhost & common internal hostnames
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".localhost")
+  ) {
+    return false;
+  }
+
+  // 3. If hostname is an IP literal, check private ranges
+  if (looksLikeIPv4(hostname)) {
+    if (isPrivateIPv4(hostname)) return false;
+  } else if (looksLikeIPv6(hostname)) {
+    const stripped = hostname.replace(/^\[|\]$/g, "");
+    if (isPrivateIPv6(stripped)) return false;
+  } else {
+    // 4. Hostname must look like a real public domain (at least one dot)
+    if (!hostname.includes(".")) {
+      return false;
+    }
+  }
+
+  // 5. Block credentials in URL (user:pass@host)
+  if (parsed.username || parsed.password) {
+    return false;
+  }
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// OG image extraction
+// ---------------------------------------------------------------------------
 
 function resolveUrl(src: string, baseUrl: string): string {
   try {
@@ -34,7 +135,15 @@ function extractOgImage(html: string): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Fetch with SSRF guard
+// ---------------------------------------------------------------------------
+
 async function fetchImageFromUrl(url: string): Promise<string | null> {
+  if (!isSafeUrl(url)) {
+    return null;
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -65,16 +174,14 @@ async function fetchImageFromUrl(url: string): Promise<string | null> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const url = searchParams.get("url");
   const query = searchParams.get("query");
-
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
 
   let imageUrl: string | null = null;
 
@@ -143,15 +250,9 @@ export async function GET(request: NextRequest) {
   }
 
   // 3. Return result (imageUrl may still be null)
-  return NextResponse.json({ imageUrl }, { headers: corsHeaders });
+  return NextResponse.json({ imageUrl });
 }
 
 export async function OPTIONS() {
-  return NextResponse.json(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+  return new NextResponse(null, { status: 204 });
 }

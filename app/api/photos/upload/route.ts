@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(jsonResponse);
   } catch (error) {
     console.error('Error handling upload:', error);
-    const message = error instanceof Error ? error.message : 'Upload token generation failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

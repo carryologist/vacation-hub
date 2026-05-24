@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getItineraryEvents, createItineraryEvent, updateItineraryEvent, deleteItineraryEvent } from '@/lib/db';
+import { validateItineraryEventInput, sanitizePartialUpdate, ITINERARY_FIELD_LIMITS } from '@/lib/validate';
 
 export async function GET() {
   try {
@@ -13,8 +14,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
-    const event = await createItineraryEvent(data);
+    const raw = await request.json();
+    const result = validateItineraryEventInput(raw);
+    if (!result.valid) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    const event = await createItineraryEvent(result.data);
     return NextResponse.json(event);
   } catch (error) {
     console.error('Error creating itinerary event:', error);
@@ -41,10 +46,11 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, ...data } = await request.json();
+    const { id, ...rawData } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
+    const data = sanitizePartialUpdate(rawData, ITINERARY_FIELD_LIMITS);
     const updated = await updateItineraryEvent(Number(id), data);
     if (!updated) {
       return NextResponse.json({ error: 'Itinerary event not found' }, { status: 404 });

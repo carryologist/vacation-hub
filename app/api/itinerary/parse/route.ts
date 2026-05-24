@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ events, textLength: text.length });
   } catch (error) {
     console.error('PDF parse error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to parse PDF';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to parse PDF. The file may be corrupted or unsupported.' }, { status: 500 });
   }
 }

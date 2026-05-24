@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
 import { getPhotos, createPhoto, updatePhotoName, deletePhoto, getPhotoById } from '../../../lib/db';
+import { validatePhotoInput, sanitizePartialUpdate, PHOTO_FIELD_LIMITS, stripHtml } from '../../../lib/validate';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,38 +13,36 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ photos });
   } catch (error) {
     console.error('Error fetching photos:', error);
-    const message = error instanceof Error ? error.message : 'Failed to fetch photos';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch photos' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { filename, original_filename, file_size, mime_type, public_url, storage_path, uploaded_by } = body;
-
-    if (!filename || !original_filename || !public_url) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const raw = await request.json();
+    const result = validatePhotoInput(raw);
+    if (!result.valid) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
     }
+    const data = result.data;
 
     const photo = await createPhoto({
-      filename,
-      original_filename,
-      file_size: file_size || 0,
-      mime_type: mime_type || 'image/jpeg',
+      filename: data.filename,
+      original_filename: data.original_filename,
+      file_size: data.file_size || 0,
+      mime_type: data.mime_type || 'image/jpeg',
       width: null,
       height: null,
-      uploaded_by: uploaded_by || 'Anonymous',
-      storage_path: storage_path || filename,
-      public_url,
+      uploaded_by: data.uploaded_by || 'Anonymous',
+      storage_path: data.storage_path || data.filename,
+      public_url: data.public_url,
       description: null,
     });
 
     return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {
     console.error('Error saving photo metadata:', error);
-    const message = error instanceof Error ? error.message : 'Failed to save photo';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to save photo' }, { status: 500 });
   }
 }
 
@@ -56,7 +55,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id and original_filename are required' }, { status: 400 });
     }
 
-    const photo = await updatePhotoName(id, original_filename);
+    // Sanitize the filename for partial update
+    const sanitized = sanitizePartialUpdate({ original_filename }, PHOTO_FIELD_LIMITS);
+    const photo = await updatePhotoName(id, sanitized.original_filename as string);
     if (!photo) {
       return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
     }

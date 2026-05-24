@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateActivities, getApiKey } from '@/lib/llm';
 import { createActivitySuggestion } from '@/lib/db';
+import { validateGenerateInput } from '@/lib/validate';
 
 export async function POST(request: NextRequest) {
   try {
-    const { provider, apiKey, destination, startDate, endDate } = await request.json();
-    
+    const raw = await request.json();
+
+    // Validate the structured fields (provider, destination, dates)
+    const result = validateGenerateInput(raw);
+    if (!result.valid) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    const { provider, destination, startDate, endDate } = result.data;
+
     // Use provided key or fall back to stored/env key
-    const resolvedKey = apiKey || await getApiKey(provider);
+    const resolvedKey = raw.apiKey || await getApiKey(provider);
     if (!resolvedKey) {
       return NextResponse.json({ error: 'No API key available' }, { status: 400 });
     }
@@ -50,7 +58,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Generation error:', error);
-    const message = error instanceof Error ? error.message : 'Generation failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Activity generation failed. Please check your API key and try again.' }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivitySuggestions, createActivitySuggestion, deleteActivitySuggestion } from '@/lib/db';
 import { sql } from '@vercel/postgres';
+import { validateActivityInput, sanitizePartialUpdate, ACTIVITY_FIELD_LIMITS } from '@/lib/validate';
 
 export async function GET() {
   try {
@@ -31,16 +32,17 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, ...data } = await request.json();
+    const { id, ...rawData } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
+    const data = sanitizePartialUpdate(rawData, ACTIVITY_FIELD_LIMITS);
     await sql`UPDATE activity_suggestions SET 
-      title = COALESCE(${data.title || null}, title),
-      description = COALESCE(${data.description || null}, description),
-      location = COALESCE(${data.location || null}, location),
-      url = COALESCE(${data.url || null}, url),
-      suggested_by = COALESCE(${data.suggested_by || null}, suggested_by)
+      title = COALESCE(${(data.title as string) || null}, title),
+      description = COALESCE(${(data.description as string) || null}, description),
+      location = COALESCE(${(data.location as string) || null}, location),
+      url = COALESCE(${(data.url as string) || null}, url),
+      suggested_by = COALESCE(${(data.suggested_by as string) || null}, suggested_by)
     WHERE id = ${Number(id)}`;
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -51,7 +53,13 @@ export async function PUT(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
+    const raw = await request.json();
+    const result = validateActivityInput(raw);
+    if (!result.valid) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    const data = result.data;
+
     const suggestion = await createActivitySuggestion(data);
 
     // Asynchronously fetch an OG image for the suggestion

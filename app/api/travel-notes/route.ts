@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTravelNotes, createTravelNote, updateTravelNote, deleteTravelNote } from '@/lib/db';
+import { validateTravelNoteInput, sanitizePartialUpdate, TRAVEL_NOTE_FIELD_LIMITS } from '@/lib/validate';
 
 export async function GET() {
   try {
@@ -13,8 +14,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
-    const note = await createTravelNote(data);
+    const raw = await request.json();
+    const result = validateTravelNoteInput(raw);
+    if (!result.valid) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    const note = await createTravelNote(result.data);
     return NextResponse.json(note);
   } catch (error) {
     console.error('Error creating travel note:', error);
@@ -41,10 +46,11 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, ...data } = await request.json();
+    const { id, ...rawData } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
+    const data = sanitizePartialUpdate(rawData, TRAVEL_NOTE_FIELD_LIMITS);
     const updated = await updateTravelNote(Number(id), data);
     if (!updated) {
       return NextResponse.json({ error: 'Travel note not found' }, { status: 404 });
