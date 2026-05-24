@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConfig, saveConfig, deleteConfig, initConfigTable } from '@/lib/config';
 import { encrypt, hasSecret } from '@/lib/crypto';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, createSignedSetupCookie, getRequiredSecret } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { sql } from '@vercel/postgres';
 
@@ -80,9 +80,16 @@ export async function POST(request: NextRequest) {
     
     const response = NextResponse.json({ success: true });
     
-    // Set setup-done cookie if setup is complete
+    // Set signed setup-done cookie if setup is complete
     if (data.setupComplete) {
-      response.cookies.set('vacation-hub-setup-done', 'true', {
+      let cookieValue = 'true';
+      try {
+        const secret = getRequiredSecret();
+        cookieValue = createSignedSetupCookie(secret);
+      } catch {
+        // If secret isn't set, fall back to unsigned (middleware will redirect to setup)
+      }
+      response.cookies.set('vacation-hub-setup-done', cookieValue, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',

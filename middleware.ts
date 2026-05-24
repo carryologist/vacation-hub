@@ -37,9 +37,7 @@ async function verifyAuthToken(token: string, secret: string): Promise<boolean> 
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // Timing-safe comparison via double-HMAC:
-    // HMAC(expected) === HMAC(signature) — comparing two HMACs with === is safe
-    // because the attacker can't control the HMAC output to exploit timing.
+    // Timing-safe comparison via double-HMAC
     const hmacA = await crypto.subtle.sign('HMAC', key, encoder.encode(signature));
     const hmacB = await crypto.subtle.sign('HMAC', key, encoder.encode(expected));
     const arrA = new Uint8Array(hmacA);
@@ -54,6 +52,51 @@ async function verifyAuthToken(token: string, secret: string): Promise<boolean> 
     return false;
   }
 }
+
+/**
+ * Verify the signed setup-done cookie value.
+ * Cookie value is "{timestamp}.{hmac}" — prevents client forgery.
+ */
+async function verifySetupCookie(value: string, secret: string): Promise<boolean> {
+  try {
+    const dotIndex = value.lastIndexOf('.');
+    if (dotIndex === -1) return false;
+
+    const payload = value.substring(0, dotIndex);
+    const signature = value.substring(dotIndex + 1);
+    if (!payload || !signature) return false;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+    const expected = Array.from(new Uint8Array(sig))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Timing-safe comparison via double-HMAC
+    const hmacA = await crypto.subtle.sign('HMAC', key, encoder.encode(signature));
+    const hmacB = await crypto.subtle.sign('HMAC', key, encoder.encode(expected));
+    const arrA = new Uint8Array(hmacA);
+    const arrB = new Uint8Array(hmacB);
+    if (arrA.length !== arrB.length) return false;
+    let diff = 0;
+    for (let i = 0; i < arrA.length; i++) {
+      diff |= arrA[i] ^ arrB[i];
+    }
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Known static file extensions — used instead of pathname.includes('.') */
+const STATIC_EXTENSIONS = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf|eot|json|txt|xml|webmanifest)$/i;
 
 /** Public API routes that don't require auth */
 const PUBLIC_API_ROUTES = [
@@ -77,16 +120,16 @@ function isMixedAuthApiRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow static assets
+  // Always allow static assets — use explicit extension check instead of pathname.includes('.')
   if (
     pathname.startsWith('/_next') ||
-    pathname.includes('.') ||
+    STATIC_EXTENSIONS.test(pathname) ||
     pathname === '/favicon.ico'
   ) {
     return NextResponse.next();
   }
 
-  // API route handling — no longer blanket-allowed
+  // API route handling
   if (pathname.startsWith('/api')) {
     // Public API routes (no auth needed)
     if (isPublicApiRoute(pathname)) {
@@ -117,10 +160,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Page routes below ---
+  const secret = process.env.VACATION_HUB_SECRET || '';
 
-  // Gate 1: Setup check — verify against DB-backed cookie
-  const setupDone = request.cookies.get('vacation-hub-setup-done');
-  if (!setupDone) {
+  // Gate 1: Setup check — verify HMAC-signed setup cookie
+  const setupCookie = request.cookies.get('vacation-hub-setup-done');
+  const setupVerified = setupCookie && secret
+    ? await verifySetupCookie(setupCookie.value, secret)
+    : false;
+
+  if (!setupVerified) {
     if (pathname === '/setup' || pathname.startsWith('/setup')) {
       return NextResponse.next();
     }
@@ -132,10 +180,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow /setup through so users can re-run the wizard (requires auth below)
-  // No — setup re-run should also be gated by auth after initial setup
   const authCookie = request.cookies.get('vacation-hub-auth');
-  const secret = process.env.VACATION_HUB_SECRET;
 
   if (!secret) {
     return NextResponse.redirect(new URL('/password', request.url));

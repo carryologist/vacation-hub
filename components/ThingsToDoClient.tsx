@@ -89,7 +89,7 @@ function ActivityCard({
       try {
         await onDelete(activity.id)
       } catch (error) {
-        console.error('Delete failed:', error)
+        console.error('Delete failed:')
         alert('Failed to delete activity. Please try again.')
       } finally {
         setIsDeleting(false)
@@ -301,7 +301,7 @@ export default function ThingsToDoClient({
       
       setFreshSuggestions(freshUserSuggestions);
     } catch (err) {
-      console.error('Failed to fetch fresh activity suggestions:', err);
+      console.error('Failed to fetch fresh activity suggestions:');
     }
   };
 
@@ -455,7 +455,7 @@ export default function ThingsToDoClient({
       setActivities(updatedActivities);
       
     } catch (error) {
-      console.error('Error deleting activity:', error);
+      console.error('Error deleting activity:');
       const updatedActivities = activities.map(category => ({
         ...category,
         activities: category.activities.filter(activity => activity.id !== activityId)
@@ -499,7 +499,7 @@ export default function ThingsToDoClient({
             })
           });
         } catch (error) {
-          console.error('Error updating activity in DB:', error);
+          console.error('Error updating activity in DB:');
         }
       }
       // Also update localStorage as a fallback

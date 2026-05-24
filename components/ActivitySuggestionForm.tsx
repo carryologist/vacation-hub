@@ -145,7 +145,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
         try {
           formData = new FormData(e.currentTarget);
         } catch (formError) {
-          console.error('Error creating FormData:', formError);
+          console.error('Error creating FormData:');
           throw formError;
         }
         
@@ -157,7 +157,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
             formData.set('website', formattedUrl);
           }
         } catch (urlError) {
-          console.error('Error formatting website URL:', urlError);
+          console.error('Error formatting website URL:');
           throw urlError;
         }
         
@@ -195,7 +195,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
             created_at: new Date().toISOString()
           };
         } catch (objectError) {
-          console.error('Error creating activity suggestion object:', objectError);
+          console.error('Error creating activity suggestion object:');
           throw objectError;
         }
         
@@ -237,7 +237,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
           }, 3000);
           
         } catch (dbError) {
-          console.error('Failed to save to database, falling back to localStorage:', dbError);
+          console.error('Failed to save to database, falling back to localStorage:');
           
           // Fallback to localStorage
           const existingSuggestions = localStorage.getItem('vh-activity-suggestions');
@@ -267,7 +267,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
         }
         
       } catch (error) {
-        console.error('Error submitting activity suggestion:', error);
+        console.error('Error submitting activity suggestion:');
         setSubmitStatus('error');
         setSubmitMessage('Something went wrong. Please try again.');
       } finally {
@@ -275,7 +275,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
       }
       
     } catch (error) {
-      console.error('Error in form submission handler:', error);
+      console.error('Error in form submission handler:');
     }
   }
 

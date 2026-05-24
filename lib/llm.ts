@@ -160,9 +160,9 @@ async function callAnthropic(apiKey: string, prompt: string): Promise<Activity[]
 }
 
 async function callGemini(apiKey: string, prompt: string): Promise<Activity[]> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       contents: [{ parts: [{ text: SYSTEM_PROMPT + '\n\n' + prompt + '\n\nReturn ONLY the JSON array, nothing else.' }] }],
       generationConfig: { temperature: 0.7, responseMimeType: 'application/json' }
@@ -296,9 +296,9 @@ async function parseAnthropic(apiKey: string, prompt: string): Promise<ParsedEve
 }
 
 async function parseGemini(apiKey: string, prompt: string): Promise<ParsedEvent[]> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       contents: [{ parts: [{ text: ITINERARY_SYSTEM_PROMPT + '\n\n' + prompt + '\n\nReturn ONLY the JSON array, nothing else.' }] }],
       generationConfig: { temperature: 0.3, responseMimeType: 'application/json' }

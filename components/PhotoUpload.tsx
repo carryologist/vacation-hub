@@ -44,7 +44,7 @@ const PhotoUpload = ({ onUploadSuccess }: PhotoUploadProps) => {
         await uploadSingleFile(file, i)
       }
     } catch (error) {
-      console.error('Upload failed:', error)
+      console.error('Upload failed:')
     } finally {
       setIsUploading(false)
       // Refresh gallery (some uploads may have succeeded)
@@ -111,7 +111,7 @@ const PhotoUpload = ({ onUploadSuccess }: PhotoUploadProps) => {
       updateProgress(index, 100, 'complete')
 
     } catch (error) {
-      console.error('Upload error:', error)
+      console.error('Upload error:')
       const msg = error instanceof Error ? error.message : 'Upload failed'
       updateProgress(index, 0, 'error', msg)
     }

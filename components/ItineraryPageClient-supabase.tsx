@@ -109,7 +109,7 @@ export default function ItineraryPageClientSupabase({
       setEvents(formattedEvents);
       setError(null);
     } catch (err) {
-      console.error('Error fetching events:', err);
+      console.error('Error fetching events:');
       setError('Failed to fetch events');
     } finally {
       setLoading(false);
@@ -147,7 +147,7 @@ export default function ItineraryPageClientSupabase({
       setSelectedTimeSlot(null);
       setPrefilledData(null);
     } catch (err) {
-      console.error('Error creating event:', err);
+      console.error('Error creating event:');
       setError('Failed to create event');
     }
   };
@@ -178,7 +178,7 @@ export default function ItineraryPageClientSupabase({
       setSelectedEvent(null);
       setSelectedTimeSlot(null);
     } catch (err) {
-      console.error('Error updating event:', err);
+      console.error('Error updating event:');
       setError('Failed to update event');
     }
   };
@@ -198,7 +198,7 @@ export default function ItineraryPageClientSupabase({
       setSelectedEvent(null);
       setSelectedTimeSlot(null);
     } catch (err) {
-      console.error('Error deleting event:', err);
+      console.error('Error deleting event:');
       setError('Failed to delete event');
     }
   };

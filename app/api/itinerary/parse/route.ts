@@ -10,6 +10,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Please upload a PDF file' }, { status: 400 });
     }
 
+    // Enforce 10MB file size limit
+    const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_PDF_SIZE) {
+      return NextResponse.json(
+        { error: 'PDF file is too large. Maximum size is 10MB.' },
+        { status: 400 }
+      );
+    }
+
     // Extract text from PDF — dynamic import to avoid pdf-parse test file issue at build time
     const buffer = Buffer.from(await file.arrayBuffer());
     const pdf = (await import('pdf-parse')).default;

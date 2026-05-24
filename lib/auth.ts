@@ -75,3 +75,13 @@ export function requireAuth(request: NextRequest): NextResponse | null {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
   }
 }
+
+/**
+ * Create a signed setup-done cookie value.
+ * Format: {payload}.{hmac} where payload is "setup-done:{timestamp}"
+ */
+export function createSignedSetupCookie(secret: string): string {
+  const payload = `setup-done:${Date.now()}`;
+  const signature = createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${signature}`;
+}
