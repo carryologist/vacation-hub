@@ -43,7 +43,7 @@ const PhotoUpload = ({ onUploadSuccess }: PhotoUploadProps) => {
         const file = fileArray[i]
         await uploadSingleFile(file, i)
       }
-    } catch (error) {
+    } catch {
       console.error('Upload failed:')
     } finally {
       setIsUploading(false)

@@ -88,7 +88,7 @@ function ActivityCard({
       setIsDeleting(true)
       try {
         await onDelete(activity.id)
-      } catch (error) {
+      } catch {
         console.error('Delete failed:')
         alert('Failed to delete activity. Please try again.')
       } finally {
@@ -300,7 +300,7 @@ export default function ThingsToDoClient({
       }
       
       setFreshSuggestions(freshUserSuggestions);
-    } catch (err) {
+    } catch {
       console.error('Failed to fetch fresh activity suggestions:');
     }
   };
@@ -454,7 +454,7 @@ export default function ThingsToDoClient({
       
       setActivities(updatedActivities);
       
-    } catch (error) {
+    } catch {
       console.error('Error deleting activity:');
       const updatedActivities = activities.map(category => ({
         ...category,
@@ -498,7 +498,7 @@ export default function ThingsToDoClient({
               suggested_by: updatedActivity.submittedBy || ''
             })
           });
-        } catch (error) {
+        } catch {
           console.error('Error updating activity in DB:');
         }
       }

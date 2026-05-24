@@ -99,10 +99,8 @@ export default function ItineraryPdfUpload({
         setParsedEvents(events);
         setCheckedEvents(events.map((e) => !e.is_duplicate));
         setState("preview");
-      } catch (err) {
-        setErrorMessage(
-          err instanceof Error ? err.message : "Something went wrong"
-        );
+      } catch {
+        setErrorMessage("Something went wrong");
         setState("error");
       }
     },
@@ -169,10 +167,8 @@ export default function ItineraryPdfUpload({
       setAddedCount(data.added ?? selectedEvents.length);
       setSkippedCount(data.skipped ?? 0);
       setState("success");
-    } catch (err) {
-      setErrorMessage(
-        err instanceof Error ? err.message : "Failed to add events"
-      );
+    } catch {
+      setErrorMessage("Failed to add events");
       setState("error");
     }
   };

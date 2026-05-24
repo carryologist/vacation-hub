@@ -236,7 +236,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
             }
           }, 3000);
           
-        } catch (dbError) {
+        } catch {
           console.error('Failed to save to database, falling back to localStorage:');
           
           // Fallback to localStorage
@@ -266,7 +266,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
           setCategoryValue(''); // Reset category dropdown
         }
         
-      } catch (error) {
+      } catch {
         console.error('Error submitting activity suggestion:');
         setSubmitStatus('error');
         setSubmitMessage('Something went wrong. Please try again.');
@@ -274,7 +274,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
         setIsSubmitting(false);
       }
       
-    } catch (error) {
+    } catch {
       console.error('Error in form submission handler:');
     }
   }

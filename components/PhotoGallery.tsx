@@ -50,7 +50,7 @@ const PhotoGallery = ({ refreshTrigger }: PhotoGalleryProps) => {
         setHasMore(data.length === PHOTOS_PER_PAGE)
         setPage(pageNum)
       }
-    } catch (error) {
+    } catch {
       console.error('Error fetching photos:')
     } finally {
       setLoading(false)
@@ -79,7 +79,7 @@ const PhotoGallery = ({ refreshTrigger }: PhotoGalleryProps) => {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-    } catch (error) {
+    } catch {
       console.error('Download failed:')
       alert('Failed to download photo. Please try again.')
     }
@@ -107,7 +107,7 @@ const PhotoGallery = ({ refreshTrigger }: PhotoGalleryProps) => {
       // Remove from local state
       setPhotos(prev => prev.filter(p => p.id !== photo.id))
       
-    } catch (error) {
+    } catch {
       console.error('Delete failed:')
       alert('Failed to delete photo. Please try again.')
     } finally {
@@ -150,7 +150,7 @@ const PhotoGallery = ({ refreshTrigger }: PhotoGalleryProps) => {
       
       handleCancelEdit(photo.id)
       
-    } catch (error) {
+    } catch {
       console.error('Failed to update photo name:')
       alert('Failed to update photo name. Please try again.')
     }
