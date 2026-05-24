@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import ItineraryPageClientSupabase from '../../components/ItineraryPageClient-supabase';
 import { getConfig } from '@/lib/config';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ItineraryPage() {
   const config = await getConfig();
   const tripName = config?.tripName ?? 'Our Trip';

@@ -6,6 +6,8 @@ import GoogleMapsWidget from "../components/GoogleMapsWidget";
 import { getConfig } from "@/lib/config";
 import HeroImageEditor from "@/components/HeroImageEditor";
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const config = await getConfig();
 

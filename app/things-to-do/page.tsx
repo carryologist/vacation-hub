@@ -1,6 +1,8 @@
 import ThingsToDoClient from "../../components/ThingsToDoClient";
 import { getConfig } from "@/lib/config";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ThingsToDoPage() {
   const config = await getConfig();
   const destination = config?.destination ?? "your destination";

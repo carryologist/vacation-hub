@@ -1,6 +1,8 @@
 import TravelNotesClient from './TravelNotesClient';
 import { getConfig } from '@/lib/config';
 
+export const dynamic = 'force-dynamic';
+
 export default async function TravelNotesPage() {
   const config = await getConfig();
   const tripName = config?.tripName ?? 'Our Trip';

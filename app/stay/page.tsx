@@ -3,6 +3,8 @@ import PhotoCarousel from "../../components/PhotoCarousel";
 import GoogleMapsWidget from "../../components/GoogleMapsWidget";
 import { getConfig, Lodging } from "@/lib/config";
 
+export const dynamic = 'force-dynamic';
+
 function normalizeImageUrls(urls: string[] | string | undefined): string[] {
   if (!urls) return [];
   if (typeof urls === 'string') return urls.split(',').map(u => u.trim()).filter(Boolean);
