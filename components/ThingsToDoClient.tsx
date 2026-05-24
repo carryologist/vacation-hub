@@ -43,6 +43,7 @@ function ActivityCard({
   categoryIcon, 
   categoryIndex, 
   activityIndex,
+  categoryName,
   onDelete,
   onEdit
 }: { 
@@ -50,6 +51,7 @@ function ActivityCard({
   categoryIcon: string
   categoryIndex: number
   activityIndex: number
+  categoryName?: string
   onDelete?: (activityId: string) => void
   onEdit?: (activity: Activity) => void
 }) {
@@ -60,7 +62,13 @@ function ActivityCard({
   useEffect(() => {
     if (activity.image || !activity.name) return
     let cancelled = false
-    fetch(`/api/og-image?query=${encodeURIComponent(activity.name)}`)
+    const params = new URLSearchParams()
+    if (activity.website) {
+      params.set('url', activity.website)
+    }
+    const queryParts = [activity.name, categoryName, activity.category].filter(Boolean).join(' ')
+    params.set('query', queryParts)
+    fetch(`/api/og-image?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         if (!cancelled && data.imageUrl) {
@@ -69,7 +77,7 @@ function ActivityCard({
       })
       .catch(() => { /* keep emoji fallback */ })
     return () => { cancelled = true }
-  }, [activity.image, activity.name])
+  }, [activity.image, activity.name, activity.website, categoryName, activity.category])
 
   const displayImage = activity.image || fetchedImage
 
@@ -539,8 +547,9 @@ export default function ThingsToDoClient({
                   categoryIcon={categoryGroup.icon}
                   categoryIndex={index}
                   activityIndex={activityIndex}
-                  onDelete={handleDeleteActivity} // Allow deletion of all activities
-                  onEdit={handleEditActivity} // Add edit functionality
+                  categoryName={categoryGroup.category}
+                  onDelete={handleDeleteActivity}
+                  onEdit={handleEditActivity}
                 />
               ))}
             </div>

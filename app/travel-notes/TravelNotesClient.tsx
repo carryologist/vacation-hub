@@ -166,7 +166,7 @@ export default function TravelNotesClient({
     color: 'var(--text-primary)',
   }
 
-  const inputFocusClass = "w-full rounded-lg px-4 py-3 placeholder-opacity-50 focus:outline-none transition-all"
+  const inputFocusClass = "w-full min-w-0 rounded-lg px-4 py-3 placeholder-opacity-50 focus:outline-none transition-all"
 
   return (
     <div className="container space-y-8 animate-fade-in overflow-x-hidden">
@@ -249,8 +249,8 @@ export default function TravelNotesClient({
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
+            <div className="grid md:grid-cols-2 gap-4 min-w-0">
+              <div className="min-w-0">
                 <label htmlFor="arrival_date" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Arrival Date *
                 </label>
@@ -262,13 +262,13 @@ export default function TravelNotesClient({
                   min={arrivalMin || undefined}
                   max={arrivalMax || undefined}
                   className={inputFocusClass}
-                  style={{ ...inputStyle }}
+                  style={{ ...inputStyle, boxSizing: 'border-box' }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="departure_date" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Departure Date (optional)
                 </label>
@@ -279,7 +279,7 @@ export default function TravelNotesClient({
                   min={departureMin || undefined}
                   max={departureMax || undefined}
                   className={inputFocusClass}
-                  style={{ ...inputStyle }}
+                  style={{ ...inputStyle, boxSizing: 'border-box' }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />
