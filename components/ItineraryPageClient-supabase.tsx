@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ItineraryCalendar from './ItineraryCalendar';
 import EventModal from './EventModal';
+import ItineraryPdfUpload from './ItineraryPdfUpload';
 
 // Component interface (camelCase) - matches EventModal interface
 interface ItineraryEvent {
@@ -49,6 +50,7 @@ export default function ItineraryPageClientSupabase({
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ date: string; time: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prefilledData, setPrefilledData] = useState<PrefilledEventData | null>(null);
+  const [showPdfUpload, setShowPdfUpload] = useState(false);
   
   const searchParams = useSearchParams();
 
@@ -258,8 +260,8 @@ export default function ItineraryPageClientSupabase({
         </div>
       )}
       
-      {/* Add Activity Button */}
-      <div className="flex justify-center">
+      {/* Action Buttons */}
+      <div className="flex justify-center gap-3">
         <button
           onClick={() => {
             setSelectedTimeSlot({ date: startDate, time: '12:00' });
@@ -271,7 +273,24 @@ export default function ItineraryPageClientSupabase({
         >
           Add an Activity
         </button>
+        <button
+          onClick={() => setShowPdfUpload((v) => !v)}
+          className="btn btn-primary"
+        >
+          📄 Upload Itinerary
+        </button>
       </div>
+
+      {showPdfUpload && (
+        <ItineraryPdfUpload
+          tripStartDate={startDate}
+          tripEndDate={endDate}
+          onEventsAdded={() => {
+            fetchEvents();
+            setShowPdfUpload(false);
+          }}
+        />
+      )}
       
       <ItineraryCalendar
         events={events}
