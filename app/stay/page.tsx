@@ -18,8 +18,26 @@ function LodgingCard({ lodging, index }: { lodging: Lodging; index: number }) {
 
   return (
     <div className="card space-y-6">
-      {/* Photo Carousel */}
-      {photos.length > 0 && <PhotoCarousel photos={photos} />}
+      {/* Photo Carousel or Fallback */}
+      {photos.length > 0 ? (
+        <PhotoCarousel photos={photos} />
+      ) : (
+        <div
+          className="relative w-full h-48 rounded-xl overflow-hidden flex items-end"
+          style={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=400&fit=crop)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div
+            className="w-full px-4 py-3"
+            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}
+          >
+            <span className="text-white font-semibold text-lg drop-shadow">{lodging.name}</span>
+          </div>
+        </div>
+      )}
 
       {/* Property Info */}
       <div className="grid lg:grid-cols-[1fr_300px] gap-8">
@@ -206,10 +224,26 @@ export default async function StayInfo() {
           </p>
         </div>
 
-        {/* Photo Carousel */}
-        {photos.length > 0 && (
+        {/* Photo Carousel or Fallback */}
+        {photos.length > 0 ? (
           <div className="animate-fade-in">
             <PhotoCarousel photos={photos} />
+          </div>
+        ) : (
+          <div
+            className="relative w-full h-64 md:h-80 rounded-xl overflow-hidden flex items-end animate-fade-in"
+            style={{
+              backgroundImage: 'url(https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=400&fit=crop)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          >
+            <div
+              className="w-full px-6 py-4"
+              style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}
+            >
+              <span className="text-white font-display font-semibold text-2xl drop-shadow">{lodging.name}</span>
+            </div>
           </div>
         )}
 

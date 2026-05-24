@@ -169,7 +169,7 @@ export default function TravelNotesClient({
   const inputFocusClass = "w-full rounded-lg px-4 py-3 placeholder-opacity-50 focus:outline-none transition-all"
 
   return (
-    <div className="container space-y-8 animate-fade-in">
+    <div className="container space-y-8 animate-fade-in overflow-x-hidden">
       {/* Header */}
       <div className="text-center">
         <div className="badge badge-primary mb-4">✈️ Travel Plans</div>
@@ -181,9 +181,9 @@ export default function TravelNotesClient({
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-8 min-w-0">
         {/* Travel Notes Form */}
-        <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <div className="rounded-2xl p-4 sm:p-6 min-w-0 overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
             {editingNote ? 'Edit Travel Plans' : 'Share Your Travel Plans'}
           </h2>
@@ -366,8 +366,8 @@ export default function TravelNotesClient({
         </div>
 
         {/* Existing Travel Notes */}
-        <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div className="flex items-center justify-between mb-6">
+        <div className="rounded-2xl p-4 sm:p-6 min-w-0 overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between mb-6 gap-2">
             <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Group Travel Plans</h2>
             <button
               onClick={loadTravelNotes}
@@ -411,10 +411,10 @@ export default function TravelNotesClient({
             <div className="space-y-4">
               {travelNotes.map((note) => (
                 <div key={note.id} className="rounded-lg p-4 relative" style={{ background: 'var(--bg-elevated)' }}>
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{note.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <h3 className="font-semibold min-w-0 break-words" style={{ color: 'var(--text-primary)' }}>{note.name}</h3>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                         {new Date(note.created_at!).toLocaleDateString()}
                       </span>
 
@@ -484,36 +484,36 @@ export default function TravelNotesClient({
                   )}
 
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span style={{ color: 'var(--text-muted)' }}>From:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{note.coming_from}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>From:</span>
+                      <span className="break-words min-w-0" style={{ color: 'var(--text-primary)' }}>{note.coming_from}</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span style={{ color: 'var(--text-muted)' }}>Arriving:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>Arriving:</span>
+                      <span className="break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
                         {formatDisplayDate(note.arrival_date)}
                       </span>
                     </div>
 
                     {note.departure_date && (
-                      <div className="flex items-center gap-2">
-                        <span style={{ color: 'var(--text-muted)' }}>Departing:</span>
-                        <span style={{ color: 'var(--text-primary)' }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>Departing:</span>
+                        <span className="break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
                           {formatDisplayDate(note.departure_date)}
                         </span>
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2">
-                      <span style={{ color: 'var(--text-muted)' }}>Transport:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{note.transportation}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>Transport:</span>
+                      <span className="break-words min-w-0" style={{ color: 'var(--text-primary)' }}>{note.transportation}</span>
                     </div>
 
                     {note.email && (
-                      <div className="flex items-center gap-2">
-                        <span style={{ color: 'var(--text-muted)' }}>Email:</span>
-                        <span style={{ color: 'var(--text-primary)' }}>{note.email}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>Email:</span>
+                        <span className="break-all min-w-0" style={{ color: 'var(--text-primary)' }}>{note.email}</span>
                       </div>
                     )}
 

@@ -54,6 +54,24 @@ function ActivityCard({
   onEdit?: (activity: Activity) => void
 }) {
   const [isDeleting, setIsDeleting] = useState(false)
+  const [fetchedImage, setFetchedImage] = useState<string | null>(null)
+
+  // Fetch a photo from the og-image API when the activity has no image
+  useEffect(() => {
+    if (activity.image || !activity.name) return
+    let cancelled = false
+    fetch(`/api/og-image?query=${encodeURIComponent(activity.name)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.imageUrl) {
+          setFetchedImage(data.imageUrl)
+        }
+      })
+      .catch(() => { /* keep emoji fallback */ })
+    return () => { cancelled = true }
+  }, [activity.image, activity.name])
+
+  const displayImage = activity.image || fetchedImage
 
   const handleDelete = async () => {
     if (!activity.id || !onDelete) return
@@ -83,9 +101,9 @@ function ActivityCard({
       <div className="grid lg:grid-cols-[300px_1fr] gap-4 lg:gap-6">
         {/* Activity Image */}
         <div className="relative aspect-[16/9] lg:aspect-[3/2] rounded-lg overflow-hidden">
-          {activity.image ? (
+          {displayImage ? (
             <img 
-              src={activity.image} 
+              src={displayImage} 
               alt={activity.name}
               className="w-full h-full object-cover"
               onError={(e) => {
@@ -98,7 +116,7 @@ function ActivityCard({
           ) : null}
           <div 
             className={`w-full h-full flex items-center justify-center ${
-              activity.image ? 'hidden' : ''
+              displayImage ? 'hidden' : ''
             }`}
             style={{ background: 'var(--brand-light)' }}
           >

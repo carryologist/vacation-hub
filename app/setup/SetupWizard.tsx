@@ -368,7 +368,18 @@ export default function SetupWizard() {
   // ─── State helpers ────────────────────────────────────────────────────────
 
   const update = useCallback(<K extends keyof WizardState>(key: K, value: WizardState[K]) => {
-    setState(prev => ({ ...prev, [key]: value }));
+    setState(prev => {
+      const next = { ...prev, [key]: value };
+      // Auto-set end date to start + 7 days if end date is empty
+      if (key === 'startDate' && !prev.endDate && typeof value === 'string' && value) {
+        try {
+          const start = new Date(value);
+          start.setDate(start.getDate() + 7);
+          next.endDate = start.toISOString().split('T')[0];
+        } catch {}
+      }
+      return next;
+    });
     // Clear all errors when user starts editing — they'll revalidate on Next
     setErrors({});
     setStepAttempted(false);
@@ -422,6 +433,66 @@ export default function SetupWizard() {
       if (!changed) return prev;
       lodgings[index] = updated;
       return { ...prev, lodgings };
+    });
+  }, []);
+
+  // Guess timezone from destination keywords (case-insensitive partial match)
+  const guessTimezone = useCallback(() => {
+    setState(prev => {
+      // Only auto-set if timezone is still the default
+      if (prev.timezone !== 'America/New_York') return prev;
+      const dest = prev.destination.toLowerCase();
+      if (!dest.trim()) return prev;
+
+      const mappings: [RegExp, string][] = [
+        // US Eastern (excluding Nashville — it's Central)
+        [(/\b(nyc|new york|boston|miami|atlanta|charlotte|washington|philadelphia|orlando)\b/), 'America/New_York'],
+        // US Central
+        [(/\b(chicago|nashville|dallas|houston|austin|memphis|milwaukee|minneapolis|kansas city|new orleans|san antonio)\b/), 'America/Chicago'],
+        // US Mountain
+        [(/\b(denver|phoenix|salt lake|albuquerque|boise)\b/), 'America/Denver'],
+        // US Pacific
+        [(/\b(los angeles|san francisco|seattle|portland|las vegas|san diego)\b|\bla\b/), 'America/Los_Angeles'],
+        // Alaska
+        [(/\b(anchorage|alaska)\b/), 'America/Anchorage'],
+        // Hawaii
+        [(/\b(hawaii|honolulu|maui)\b/), 'Pacific/Honolulu'],
+        // UK / Ireland
+        [(/\b(london|edinburgh|dublin)\b/), 'Europe/London'],
+        // Western Europe (CET)
+        [(/\b(paris|nice|barcelona|madrid|rome|milan|amsterdam|brussels)\b/), 'Europe/Paris'],
+        // Central Europe
+        [(/\b(berlin|munich|vienna|zurich|prague)\b/), 'Europe/Berlin'],
+        // Japan
+        [(/\b(tokyo|osaka|kyoto)\b/), 'Asia/Tokyo'],
+        // China
+        [(/\b(shanghai|beijing|hong kong)\b/), 'Asia/Shanghai'],
+        // Australia
+        [(/\b(sydney|melbourne|brisbane)\b/), 'Australia/Sydney'],
+        // Canada Eastern
+        [(/\b(toronto|montreal|ottawa)\b/), 'America/Toronto'],
+        // Canada Pacific
+        [(/\b(vancouver|victoria bc)\b/), 'America/Vancouver'],
+        // Mexico Central
+        [(/\b(cancun|mexico city|tulum|playa del carmen)\b/), 'America/Chicago'],
+        // Brazil
+        [(/\b(s[aã]o paulo|rio)\b/), 'America/Sao_Paulo'],
+        // Gulf
+        [(/\b(dubai|abu dhabi)\b/), 'Asia/Dubai'],
+        // India
+        [(/\b(mumbai|delhi|goa)\b/), 'Asia/Kolkata'],
+        // Southeast Asia
+        [(/\b(singapore|bali|jakarta)\b/), 'Asia/Singapore'],
+        // New Zealand
+        [(/\b(auckland|queenstown)\b/), 'Pacific/Auckland'],
+      ];
+
+      for (const [pattern, tz] of mappings) {
+        if (pattern.test(dest)) {
+          return { ...prev, timezone: tz };
+        }
+      }
+      return prev;
     });
   }, []);
 
@@ -643,7 +714,7 @@ export default function SetupWizard() {
       </WizardField>
 
       <WizardField errors={errors} stepAttempted={stepAttempted} label="Destination *" name="destination">
-        <WizardInput name="destination" value={state.destination} onChange={v => update('destination', v)} placeholder="e.g. Tulum, Mexico" />
+        <WizardInput name="destination" value={state.destination} onChange={v => update('destination', v)} placeholder="e.g. Tulum, Mexico" onBlur={() => guessTimezone()} />
       </WizardField>
 
       <WizardField errors={errors} stepAttempted={stepAttempted} label="Tagline" name="tagline">

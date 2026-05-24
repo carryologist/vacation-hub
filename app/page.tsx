@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Countdown from "../components/countdown";
 import GoogleMapsWidget from "../components/GoogleMapsWidget";
 import { getConfig } from "@/lib/config";
+import HeroImageEditor from "@/components/HeroImageEditor";
 
 export default async function Home() {
   const config = await getConfig();
@@ -70,6 +71,7 @@ export default async function Home() {
             </div>
           </div>
         </div>
+        <HeroImageEditor />
       </section>
 
       {/* Planning Cards */}
