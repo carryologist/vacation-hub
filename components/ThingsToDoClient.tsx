@@ -262,18 +262,27 @@ export default function ThingsToDoClient({
       const data: DbActivitySuggestion[] = await res.json();
       
       // Convert DB format to ActivitySuggestion format
-      const freshUserSuggestions = data.map(suggestion => ({
-        id: suggestion.id?.toString() || Date.now().toString(),
-        name: suggestion.suggested_by || 'Anonymous',
-        activity_name: suggestion.title,
-        description: suggestion.description,
-        location: suggestion.location || '',
-        website: suggestion.url || '',
-        category: suggestion.category,
-        notes: suggestion.notes || '',
-        image_url: suggestion.image_url || '',
-        created_at: suggestion.created_at || new Date().toISOString()
-      }));
+      // Deduplicate: keep only the first occurrence of each title (case-insensitive)
+      const seenTitles = new Set<string>();
+      const freshUserSuggestions = data
+        .map(suggestion => ({
+          id: suggestion.id?.toString() || Date.now().toString(),
+          name: suggestion.suggested_by || 'Anonymous',
+          activity_name: suggestion.title,
+          description: suggestion.description,
+          location: suggestion.location || '',
+          website: suggestion.url || '',
+          category: suggestion.category,
+          notes: suggestion.notes || '',
+          image_url: suggestion.image_url || '',
+          created_at: suggestion.created_at || new Date().toISOString()
+        }))
+        .filter(suggestion => {
+          const key = suggestion.activity_name.toLowerCase().trim();
+          if (seenTitles.has(key)) return false;
+          seenTitles.add(key);
+          return true;
+        });
       
       setFreshSuggestions(freshUserSuggestions);
     } catch (err) {

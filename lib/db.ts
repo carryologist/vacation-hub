@@ -133,7 +133,7 @@ export async function deleteItineraryEvent(id: number): Promise<boolean> {
 
 // Activity Suggestions
 export async function getActivitySuggestions(): Promise<ActivitySuggestion[]> {
-  const { rows } = await sql<ActivitySuggestion>`SELECT * FROM activity_suggestions ORDER BY created_at DESC`;
+  const { rows } = await sql<ActivitySuggestion>`SELECT DISTINCT ON (LOWER(title)) * FROM activity_suggestions ORDER BY LOWER(title), created_at ASC`;
   return rows;
 }
 
@@ -141,8 +141,13 @@ export async function createActivitySuggestion(suggestion: Omit<ActivitySuggesti
   const { rows } = await sql<ActivitySuggestion>`
     INSERT INTO activity_suggestions (title, description, category, location, url, suggested_by, image_url)
     VALUES (${suggestion.title}, ${suggestion.description}, ${suggestion.category}, ${suggestion.location || null}, ${suggestion.url || null}, ${suggestion.suggested_by || null}, ${suggestion.image_url || null})
+    ON CONFLICT DO NOTHING
     RETURNING *
   `;
+  // If conflict, return a stub (row already exists)
+  if (rows.length === 0) {
+    return { title: suggestion.title, description: suggestion.description, category: suggestion.category } as ActivitySuggestion;
+  }
   return rows[0];
 }
 
@@ -236,6 +241,9 @@ export async function initializeDatabase(): Promise<void> {
   `;
 
   await sql`ALTER TABLE activity_suggestions ADD COLUMN IF NOT EXISTS image_url TEXT`;
+
+  // Unique index on lowercase title to prevent duplicate activities
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_title_unique ON activity_suggestions (LOWER(title))`;
 
   // Photos table
   await sql`

@@ -196,9 +196,9 @@ export default function TravelNotesClient({
             </div>
           )}
 
-          <form id="travel-notes-form" action={onSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
+          <form id="travel-notes-form" action={onSubmit} className="space-y-6 min-w-0 overflow-hidden">
+            <div className="grid md:grid-cols-2 gap-4 min-w-0">
+              <div className="min-w-0 overflow-hidden">
                 <label htmlFor="name" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Your Name *
                 </label>
@@ -215,7 +215,7 @@ export default function TravelNotesClient({
                 />
               </div>
 
-              <div>
+              <div className="min-w-0 overflow-hidden">
                 <label htmlFor="email" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Email (optional)
                 </label>
@@ -250,7 +250,7 @@ export default function TravelNotesClient({
             </div>
 
             <div className="grid md:grid-cols-2 gap-4 min-w-0">
-              <div className="min-w-0">
+              <div className="min-w-0 overflow-hidden">
                 <label htmlFor="arrival_date" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Arrival Date *
                 </label>
@@ -261,14 +261,14 @@ export default function TravelNotesClient({
                   required
                   min={arrivalMin || undefined}
                   max={arrivalMax || undefined}
-                  className={inputFocusClass}
-                  style={{ ...inputStyle, boxSizing: 'border-box' }}
+                  className={`${inputFocusClass} max-w-full`}
+                  style={{ ...inputStyle, maxWidth: '100%', WebkitAppearance: 'none' }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 overflow-hidden">
                 <label htmlFor="departure_date" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Departure Date (optional)
                 </label>
@@ -278,8 +278,8 @@ export default function TravelNotesClient({
                   name="departure_date"
                   min={departureMin || undefined}
                   max={departureMax || undefined}
-                  className={inputFocusClass}
-                  style={{ ...inputStyle, boxSizing: 'border-box' }}
+                  className={`${inputFocusClass} max-w-full`}
+                  style={{ ...inputStyle, maxWidth: '100%', WebkitAppearance: 'none' }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />

@@ -20,9 +20,13 @@ export async function POST(request: NextRequest) {
       endDate,
     });
 
-    // Save to database
+    // Save to database — deduplicate by title (case-insensitive)
     let saved = 0;
+    const seenTitles = new Set<string>();
     for (const activity of activities) {
+      const normalizedTitle = activity.title.toLowerCase().trim();
+      if (seenTitles.has(normalizedTitle)) continue;
+      seenTitles.add(normalizedTitle);
       try {
         await createActivitySuggestion({
           title: activity.title,
