@@ -2,6 +2,7 @@ import { sql } from '@vercel/postgres';
 
 export interface Lodging {
   name: string;
+  type: 'hotel' | 'airbnb' | 'vrbo' | 'house' | 'resort' | 'hostel' | 'other';
   description: string;
   address: string;
   imageUrls: string[];
@@ -9,6 +10,8 @@ export interface Lodging {
   bookingUrl?: string;
   checkIn?: string;
   checkOut?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
 }
 
 export interface VacationConfig {

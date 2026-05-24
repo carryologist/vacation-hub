@@ -12,6 +12,7 @@ interface LodgingHighlight {
 
 interface LodgingFormData {
   name: string;
+  type: 'hotel' | 'airbnb' | 'vrbo' | 'house' | 'resort' | 'hostel' | 'other';
   address: string;
   url: string;
   checkIn: string;
@@ -87,6 +88,7 @@ const TIMEZONES = [
 
 const EMPTY_LODGING: LodgingFormData = {
   name: '',
+  type: 'hotel',
   address: '',
   url: '',
   checkIn: '',
@@ -647,11 +649,21 @@ export default function SetupWizard() {
         brandColor: state.brandColor,
         heroImageUrl: state.heroImageUrl,
         lodgings: state.lodgings.filter(l => l.name.trim()).map(l => ({
-          ...l,
+          name: l.name.trim(),
+          type: l.type,
+          description: l.description.trim(),
+          address: l.address.trim(),
           imageUrls: l.imageUrls
             ? l.imageUrls.split(',').map(u => u.trim()).filter(Boolean)
             : [],
-          highlights: l.highlights.filter(h => h.key.trim() || h.value.trim()),
+          highlights: l.highlights
+            .filter(h => h.key.trim() || h.value.trim())
+            .map(h => h.value.trim() ? `${h.key.trim()}: ${h.value.trim()}` : h.key.trim()),
+          bookingUrl: l.url.trim() || undefined,
+          checkIn: l.checkIn || undefined,
+          checkOut: l.checkOut || undefined,
+          checkInTime: l.checkInTime || undefined,
+          checkOutTime: l.checkOutTime || undefined,
         })),
         password: state.password,
         llmProvider: state.skipAI ? null : state.llmProvider,
@@ -867,6 +879,24 @@ export default function SetupWizard() {
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Name</label>
               <WizardInput name={`lodging-${li}-name`} value={lodging.name} onChange={v => updateLodging(li, 'name', v)} placeholder="e.g. Beach House" onBlur={() => autofillLodging(li)} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Property Type</label>
+              <select
+                value={lodging.type}
+                onChange={e => updateLodging(li, 'type', e.target.value)}
+                style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                <option value="hotel">🏨 Hotel</option>
+                <option value="airbnb">🏠 Airbnb</option>
+                <option value="vrbo">🏡 VRBO</option>
+                <option value="house">🏘️ House</option>
+                <option value="resort">🌴 Resort</option>
+                <option value="hostel">🛏️ Hostel</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Address</label>
