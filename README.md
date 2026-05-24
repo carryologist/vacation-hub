@@ -23,6 +23,8 @@ No accounts. No subscriptions. One shared password. Your data stays in your own 
 
 ## Quick Start
 
+> **New to this?** Follow the **[step-by-step Setup Guide](docs/SETUP_GUIDE.md)** — it walks you through everything with no technical knowledge required.
+
 ### 1. Fork & deploy
 
 Click the **Deploy with Vercel** button above, or:
