@@ -20,6 +20,7 @@ export interface VacationConfig {
   tagline: string;
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
+  timezone?: string;
   brandColor: string;
   heroImageUrl: string;
   lodgings: Lodging[];

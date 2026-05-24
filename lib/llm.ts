@@ -115,6 +115,136 @@ export async function generateActivities(opts: GenerateOptions): Promise<Activit
   }
 }
 
+// --- Itinerary parsing ---
+
+export interface ParsedEvent {
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
+  url?: string;
+  category: string;
+}
+
+interface ParseItineraryOptions {
+  provider: 'openai' | 'anthropic' | 'gemini';
+  apiKey: string;
+  text: string;
+  tripStartDate: string;
+  tripEndDate: string;
+  timezone: string;
+}
+
+const ITINERARY_SYSTEM_PROMPT = `You are parsing an itinerary/schedule document. Extract all events, activities, reservations, flights, and scheduled items. Always return valid JSON.`;
+
+function buildItineraryPrompt(text: string, startDate: string, endDate: string, timezone: string): string {
+  return `You are parsing an itinerary/schedule document. Extract all events, activities, reservations, flights, and scheduled items.
+
+Trip dates: ${startDate} to ${endDate}
+Timezone: ${timezone}
+
+For each event, return:
+{
+  "title": "string",
+  "description": "string or null",
+  "start_time": "ISO 8601 timestamp with timezone",
+  "end_time": "ISO 8601 timestamp with timezone",
+  "location": "string or null",
+  "url": "string or null",
+  "category": "one of: general, meal, activity, travel, celebration, rest"
+}
+
+Rules:
+- Use the trip timezone for all times unless the document specifies otherwise
+- If only a date is given with no time, use 09:00 for start and 10:00 for end
+- If only a start time is given, assume 1 hour duration
+- Assign categories intelligently: flights/drives = travel, restaurants/dinner = meal, tours/shows = activity, parties = celebration
+- Return ONLY a JSON array of events, nothing else
+
+Document text:
+${text}`;
+}
+
+async function parseOpenAI(apiKey: string, prompt: string): Promise<ParsedEvent[]> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: ITINERARY_SYSTEM_PROMPT },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      response_format: { type: 'json_object' }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI API error: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  const content = data.choices[0].message.content;
+  const parsed = JSON.parse(content);
+  return Array.isArray(parsed) ? parsed : parsed.events || Object.values(parsed)[0];
+}
+
+async function parseAnthropic(apiKey: string, prompt: string): Promise<ParsedEvent[]> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      system: ITINERARY_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: prompt + '\n\nReturn ONLY the JSON array, nothing else.' }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Anthropic API error: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  const content = data.content[0].text;
+  const cleaned = content.replace(/```json?\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+async function parseGemini(apiKey: string, prompt: string): Promise<ParsedEvent[]> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: ITINERARY_SYSTEM_PROMPT + '\n\n' + prompt + '\n\nReturn ONLY the JSON array, nothing else.' }] }],
+      generationConfig: { temperature: 0.3, responseMimeType: 'application/json' }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  const content = data.candidates[0].content.parts[0].text;
+  const cleaned = content.replace(/```json?\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+export async function parseItineraryFromText(opts: ParseItineraryOptions): Promise<ParsedEvent[]> {
+  const prompt = buildItineraryPrompt(opts.text, opts.tripStartDate, opts.tripEndDate, opts.timezone);
+
+  switch (opts.provider) {
+    case 'openai': return parseOpenAI(opts.apiKey, prompt);
+    case 'anthropic': return parseAnthropic(opts.apiKey, prompt);
+    case 'gemini': return parseGemini(opts.apiKey, prompt);
+    default: throw new Error(`Unknown provider: ${opts.provider}`);
+  }
+}
+
 // Get the API key - check env vars first, then encrypted DB value
 export async function getApiKey(provider: string): Promise<string | null> {
   // Check env vars first
