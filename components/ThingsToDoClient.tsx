@@ -262,27 +262,42 @@ export default function ThingsToDoClient({
       const data: DbActivitySuggestion[] = await res.json();
       
       // Convert DB format to ActivitySuggestion format
-      // Deduplicate: keep only the first occurrence of each title (case-insensitive)
-      const seenTitles = new Set<string>();
-      const freshUserSuggestions = data
-        .map(suggestion => ({
-          id: suggestion.id?.toString() || Date.now().toString(),
-          name: suggestion.suggested_by || 'Anonymous',
-          activity_name: suggestion.title,
-          description: suggestion.description,
-          location: suggestion.location || '',
-          website: suggestion.url || '',
-          category: suggestion.category,
-          notes: suggestion.notes || '',
-          image_url: suggestion.image_url || '',
-          created_at: suggestion.created_at || new Date().toISOString()
-        }))
-        .filter(suggestion => {
-          const key = suggestion.activity_name.toLowerCase().trim();
-          if (seenTitles.has(key)) return false;
-          seenTitles.add(key);
-          return true;
+      const mapped = data.map(suggestion => ({
+        id: suggestion.id?.toString() || Date.now().toString(),
+        name: suggestion.suggested_by || 'Anonymous',
+        activity_name: suggestion.title,
+        description: suggestion.description,
+        location: suggestion.location || '',
+        website: suggestion.url || '',
+        category: suggestion.category,
+        notes: suggestion.notes || '',
+        image_url: suggestion.image_url || '',
+        created_at: suggestion.created_at || new Date().toISOString()
+      }));
+
+      // Fuzzy deduplicate: if title A contains title B (or vice versa),
+      // or they share enough significant words, keep only the first one.
+      const freshUserSuggestions: typeof mapped = [];
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+      const significantWords = (s: string) =>
+        normalize(s).split(/\s+/).filter(w => w.length > 2 && !['the','and','for','tour','show','visit','trip','experience','at','of','in','to','a','hot','chicken','bar','grill','restaurant','house','place','center','museum','park','cafe','club','hall'].includes(w));
+
+      for (const item of mapped) {
+        const norm = normalize(item.activity_name);
+        const words = significantWords(item.activity_name);
+        const isDupe = freshUserSuggestions.some(existing => {
+          const existingNorm = normalize(existing.activity_name);
+          // Substring match: "Grand Ole Opry" is inside "Grand Ole Opry Show"
+          if (existingNorm.includes(norm) || norm.includes(existingNorm)) return true;
+          // Shared-word match: must share majority of the shorter title's words
+          const existingWords = significantWords(existing.activity_name);
+          const shared = words.filter(w => existingWords.includes(w)).length;
+          const shorter = Math.min(words.length, existingWords.length);
+          if (shorter >= 2 && shared >= Math.ceil(shorter * 0.6)) return true;
+          return false;
         });
+        if (!isDupe) freshUserSuggestions.push(item);
+      }
       
       setFreshSuggestions(freshUserSuggestions);
     } catch (err) {
