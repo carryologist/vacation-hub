@@ -1,23 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConfig, saveConfig, deleteConfig, initConfigTable } from '@/lib/config';
 import { encrypt, hasSecret } from '@/lib/crypto';
+import { requireAuth } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { sql } from '@vercel/postgres';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await initConfigTable();
     const config = await getConfig();
     if (!config) {
       return NextResponse.json({ setupComplete: false });
     }
-    // Don't return sensitive fields
+
+    // Check if caller is authenticated
+    const authCookie = request.cookies.get('vacation-hub-auth');
+    const secret = process.env.VACATION_HUB_SECRET;
+    let isAuthenticated = false;
+
+    if (authCookie && secret) {
+      // Quick HMAC check — import the Node.js verifier
+      const { verifyAuthTokenNode } = await import('@/lib/auth');
+      isAuthenticated = verifyAuthTokenNode(authCookie.value, secret);
+    }
+
+    // Strip sensitive fields always
     const { passwordHash, llmApiKeyEncrypted, ...safe } = config;
-    return NextResponse.json({
-      ...safe,
-      hasPassword: !!passwordHash,
-      hasLlmKey: !!llmApiKeyEncrypted,
-    });
+
+    if (isAuthenticated) {
+      // Authenticated: return full safe config
+      return NextResponse.json({
+        ...safe,
+        hasPassword: !!passwordHash,
+        hasLlmKey: !!llmApiKeyEncrypted,
+      });
+    } else {
+      // Unauthenticated: return only what's needed for setup/password flow
+      return NextResponse.json({
+        setupComplete: config.setupComplete ?? false,
+        hasPassword: !!passwordHash,
+        tripName: config.tripName, // needed for password page title
+      });
+    }
   } catch (error) {
     console.error('Error fetching config:', error);
     return NextResponse.json({ error: 'Failed to fetch config' }, { status: 500 });
@@ -26,7 +50,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth required — but allow first-time setup (no config exists yet)
     await initConfigTable();
+    const existingConfig = await getConfig();
+
+    if (existingConfig && existingConfig.setupComplete) {
+      // Site is already set up — require auth to modify
+      const authError = requireAuth(request);
+      if (authError) return authError;
+    }
+
     const data = await request.json();
     
     // Hash password if provided as plaintext
@@ -65,8 +98,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    // Auth always required for nuclear reset
+    const authError = requireAuth(request);
+    if (authError) return authError;
+
     // Delete all data - nuclear reset
     await deleteConfig();
     await sql`DELETE FROM itinerary_events`;

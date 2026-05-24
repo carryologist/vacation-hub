@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConfig } from '@/lib/config';
 import bcrypt from 'bcryptjs';
-import { createHmac } from 'crypto';
-
-function createAuthToken(secret: string): string {
-  const timestamp = Date.now().toString();
-  const signature = createHmac('sha256', secret).update(timestamp).digest('hex');
-  return `${timestamp}.${signature}`;
-}
+import { createAuthToken, getRequiredSecret } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
     const { password, rememberMe } = await request.json();
+
+    if (!password || typeof password !== 'string') {
+      return NextResponse.json({ error: 'Password is required' }, { status: 400 });
+    }
+
     const config = await getConfig();
     
     if (!config || !config.passwordHash) {
@@ -23,7 +22,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
 
-    const secret = process.env.VACATION_HUB_SECRET || 'fallback';
+    let secret: string;
+    try {
+      secret = getRequiredSecret();
+    } catch {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
     const token = createAuthToken(secret);
     
     const response = NextResponse.json({ success: true });
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24, // 30 days or 1 day
+      maxAge: rememberMe === true ? 60 * 60 * 24 * 30 : 60 * 60 * 24, // 30 days or 1 day
       path: '/',
     });
     
