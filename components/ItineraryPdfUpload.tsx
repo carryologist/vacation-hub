@@ -99,8 +99,8 @@ export default function ItineraryPdfUpload({
         setParsedEvents(events);
         setCheckedEvents(events.map((e) => !e.is_duplicate));
         setState("preview");
-      } catch {
-        setErrorMessage("Something went wrong");
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
         setState("error");
       }
     },

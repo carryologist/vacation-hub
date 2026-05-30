@@ -2,28 +2,49 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseItineraryFromText, getApiKey } from '@/lib/llm';
 import { getConfig } from '@/lib/config';
 
+// Allow up to 60s for PDF parsing + LLM call
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    if (!file || file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'Please upload a PDF file' }, { status: 400 });
+
+    // Accept application/pdf and also empty type (iOS Safari sometimes sends empty)
+    const isPdf = file && (
+      file.type === 'application/pdf' ||
+      file.name?.toLowerCase().endsWith('.pdf')
+    );
+    if (!file || !isPdf) {
+      return NextResponse.json(
+        { error: `Please upload a PDF file. (Received type: "${file?.type || 'none'}", name: "${file?.name || 'none'}")` },
+        { status: 400 }
+      );
     }
 
-    // Enforce 10MB file size limit
-    const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10MB
+    // Enforce 4.5MB limit (Vercel serverless body limit)
+    const MAX_PDF_SIZE = 4.5 * 1024 * 1024;
     if (file.size > MAX_PDF_SIZE) {
       return NextResponse.json(
-        { error: 'PDF file is too large. Maximum size is 10MB.' },
+        { error: 'PDF file is too large. Maximum size is 4.5MB.' },
         { status: 400 }
       );
     }
 
     // Extract text from PDF — dynamic import to avoid pdf-parse test file issue at build time
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const pdf = (await import('pdf-parse')).default;
-    const pdfData = await pdf(buffer);
-    const text = pdfData.text;
+    let text: string;
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const pdf = (await import('pdf-parse')).default;
+      const pdfData = await pdf(buffer);
+      text = pdfData.text;
+    } catch (pdfErr) {
+      console.error('pdf-parse error:', pdfErr);
+      return NextResponse.json(
+        { error: 'Failed to read PDF. The file may be corrupted or password-protected.' },
+        { status: 400 }
+      );
+    }
 
     if (!text.trim()) {
       return NextResponse.json(
@@ -61,7 +82,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ events, textLength: text.length });
   } catch (error) {
-    console.error('PDF parse error:', error);
-    return NextResponse.json({ error: 'Failed to parse PDF. The file may be corrupted or unsupported.' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('PDF parse error:', message, error);
+    return NextResponse.json(
+      { error: `Failed to parse itinerary: ${message}` },
+      { status: 500 }
+    );
   }
 }
