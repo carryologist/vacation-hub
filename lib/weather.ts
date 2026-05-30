@@ -96,9 +96,56 @@ async function geocodeDestination(
   destination: string
 ): Promise<GeoResult | null> {
   const query = destination.trim();
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en`;
 
-  const res = await fetch(url, { next: { revalidate: 86400 } }); // cache 24h
+  // Strategy 1: Try the full destination string
+  const fullResult = await geocodeQuery(query);
+  if (fullResult) return fullResult;
+
+  // Strategy 2: Open-Meteo geocoding only handles city names well.
+  // If the destination has a comma (e.g., "Nashville, Tennessee"), try just
+  // the city part and then match the region from the results.
+  const commaIndex = query.indexOf(',');
+  if (commaIndex > 0) {
+    const city = query.substring(0, commaIndex).trim();
+    const region = query.substring(commaIndex + 1).trim().toLowerCase();
+
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=10&language=en`;
+    const res = await fetch(url, { next: { revalidate: 86400 } });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) return null;
+
+    // Try to find a result whose admin1 (state) or country matches the region
+    const match = data.results.find(
+      (r: Record<string, unknown>) =>
+        (typeof r.admin1 === 'string' && r.admin1.toLowerCase().includes(region)) ||
+        (typeof r.country === 'string' && r.country.toLowerCase().includes(region))
+    );
+
+    const r = match ?? data.results[0]; // Fall back to top result
+    return {
+      latitude: r.latitude as number,
+      longitude: r.longitude as number,
+      name: r.name as string,
+      country: (r.country as string) ?? '',
+      timezone: (r.timezone as string) ?? 'UTC',
+    };
+  }
+
+  // Strategy 3: Try just the first word (handles "Nashville Tennessee" without comma)
+  const firstWord = query.split(/\s+/)[0];
+  if (firstWord && firstWord !== query) {
+    const fallbackResult = await geocodeQuery(firstWord);
+    if (fallbackResult) return fallbackResult;
+  }
+
+  return null;
+}
+
+async function geocodeQuery(query: string): Promise<GeoResult | null> {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en`;
+  const res = await fetch(url, { next: { revalidate: 86400 } });
   if (!res.ok) return null;
 
   const data = await res.json();
@@ -109,8 +156,8 @@ async function geocodeDestination(
     latitude: r.latitude,
     longitude: r.longitude,
     name: r.name,
-    country: r.country ?? "",
-    timezone: r.timezone ?? "UTC",
+    country: r.country ?? '',
+    timezone: r.timezone ?? 'UTC',
   };
 }
 
