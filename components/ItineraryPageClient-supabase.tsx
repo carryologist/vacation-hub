@@ -88,7 +88,7 @@ export default function ItineraryPageClientSupabase({
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/itinerary');
+      const res = await fetch('/api/itinerary/');
       if (!res.ok) throw new Error('Failed to fetch events');
       const data = await res.json();
       // Convert snake_case DB rows to camelCase
@@ -125,7 +125,7 @@ export default function ItineraryPageClientSupabase({
   // Create new event
   const createEvent = async (eventData: Omit<ItineraryEvent, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const res = await fetch('/api/itinerary', {
+      const res = await fetch('/api/itinerary/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -156,7 +156,7 @@ export default function ItineraryPageClientSupabase({
   // Update existing event
   const updateEvent = async (eventData: ItineraryEvent) => {
     try {
-      const res = await fetch('/api/itinerary', {
+      const res = await fetch('/api/itinerary/', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,7 +187,7 @@ export default function ItineraryPageClientSupabase({
   // Delete event
   const deleteEvent = async (eventId: string) => {
     try {
-      const res = await fetch('/api/itinerary', {
+      const res = await fetch('/api/itinerary/', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: parseInt(eventId) })

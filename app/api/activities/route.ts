@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       }
       params.set('query', `${data.title} ${data.category}`);
 
-      const ogResponse = await fetch(`${origin}/api/og-image?${params.toString()}`);
+      const ogResponse = await fetch(`${origin}/api/og-image/?${params.toString()}`);
       const ogData = await ogResponse.json();
 
       if (ogData.imageUrl) {

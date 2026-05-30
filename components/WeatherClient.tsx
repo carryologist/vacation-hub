@@ -135,7 +135,7 @@ export default function WeatherClient({ tripName, destination, startDate, endDat
     async function fetchWeather() {
       try {
         const params = new URLSearchParams({ destination, startDate, endDate });
-        const res = await fetch(`/api/weather?${params.toString()}`);
+        const res = await fetch(`/api/weather/?${params.toString()}`);
         if (!res.ok) throw new Error();
         const data = await res.json();
         setWeather(data);

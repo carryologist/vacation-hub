@@ -276,7 +276,7 @@ export default function ThingsToDoClient({
   // Fetch fresh suggestions from database
   const fetchFreshSuggestions = async () => {
     try {
-      const res = await fetch('/api/activities');
+      const res = await fetch('/api/activities/');
       if (!res.ok) throw new Error('Failed to fetch activities');
       const data: DbActivitySuggestion[] = await res.json();
 
@@ -322,7 +322,7 @@ export default function ThingsToDoClient({
   // Fetch vote summaries
   const fetchVotes = useCallback(async () => {
     try {
-      const res = await fetch('/api/activities/vote');
+      const res = await fetch('/api/activities/vote/');
       if (!res.ok) return;
       const data: VoteSummary[] = await res.json();
       setVoteSummaries(data);
@@ -335,7 +335,7 @@ export default function ThingsToDoClient({
   const castVote = useCallback(async (activityId: string, vote: 1 | -1, name: string) => {
     setVoteLoading(true);
     try {
-      await fetch('/api/activities/vote', {
+      await fetch('/api/activities/vote/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -504,7 +504,7 @@ export default function ThingsToDoClient({
   const handleDeleteActivity = async (activityId: string) => {
     try {
       try {
-        await fetch('/api/activities', {
+        await fetch('/api/activities/', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: activityId })
@@ -556,7 +556,7 @@ export default function ThingsToDoClient({
       const numericId = Number(updatedActivity.id);
       if (!isNaN(numericId) && String(numericId) === String(updatedActivity.id)) {
         try {
-          await fetch('/api/activities', {
+          await fetch('/api/activities/', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

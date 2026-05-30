@@ -17,7 +17,7 @@ export default function CalendarExport({ tripName }: CalendarExportProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/itinerary/export/token');
+      const res = await fetch('/api/itinerary/export/token/');
       if (!res.ok) throw new Error('Failed to generate subscription URL');
       const { token } = await res.json();
       const base = window.location.origin;

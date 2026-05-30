@@ -606,7 +606,7 @@ export default function SetupWizard() {
     setIsGenerating(true);
     setErrors({});
     try {
-      const res = await fetch('/api/setup/generate', {
+      const res = await fetch('/api/setup/generate/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -671,7 +671,7 @@ export default function SetupWizard() {
         setupComplete: true,
       };
 
-      const configRes = await fetch('/api/setup/config', {
+      const configRes = await fetch('/api/setup/config/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configPayload),
@@ -682,10 +682,10 @@ export default function SetupWizard() {
       }
 
       // 2. Init database tables
-      await fetch('/api/db/init', { method: 'POST' }).catch(() => {});
+      await fetch('/api/db/init/', { method: 'POST' }).catch(() => {});
 
       // 3. Authenticate (auto-login after setup)
-      const authRes = await fetch('/api/auth', {
+      const authRes = await fetch('/api/auth/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: state.password, rememberMe: true }),

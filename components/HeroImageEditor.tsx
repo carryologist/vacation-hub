@@ -36,7 +36,7 @@ export default function HeroImageEditor() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/setup/config", {
+      const res = await fetch("/api/setup/config/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ heroImageUrl: url.trim() }),

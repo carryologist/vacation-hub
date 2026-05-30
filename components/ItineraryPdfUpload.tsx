@@ -77,7 +77,7 @@ export default function ItineraryPdfUpload({
         formData.append("tripStartDate", tripStartDate);
         formData.append("tripEndDate", tripEndDate);
 
-        const res = await fetch("/api/itinerary/parse", {
+        const res = await fetch("/api/itinerary/parse/", {
           method: "POST",
           body: formData,
         });
@@ -152,7 +152,7 @@ export default function ItineraryPdfUpload({
     setState("processing");
 
     try {
-      const res = await fetch("/api/itinerary/batch", {
+      const res = await fetch("/api/itinerary/batch/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ events: selectedEvents }),

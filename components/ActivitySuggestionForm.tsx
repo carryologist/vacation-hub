@@ -201,7 +201,7 @@ export default function ActivitySuggestionForm({ onClose, onSuccess }: ActivityS
         
         // Save to database via API
         try {
-          const res = await fetch('/api/activities', {
+          const res = await fetch('/api/activities/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

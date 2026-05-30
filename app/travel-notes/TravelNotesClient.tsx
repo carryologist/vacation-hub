@@ -35,7 +35,7 @@ export default function TravelNotesClient({
     setError(null)
 
     try {
-      const res = await fetch('/api/travel-notes')
+      const res = await fetch('/api/travel-notes/')
       if (!res.ok) throw new Error('Failed to fetch travel notes')
       const data = await res.json()
 
@@ -65,7 +65,7 @@ export default function TravelNotesClient({
       }
 
       if (editingNote) {
-        const res = await fetch('/api/travel-notes', {
+        const res = await fetch('/api/travel-notes/', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editingNote.id, ...data })
@@ -76,7 +76,7 @@ export default function TravelNotesClient({
 
         setTravelNotes(prevNotes => prevNotes.map(n => n.id === editingNote.id ? updatedNote : n))
       } else {
-        const res = await fetch('/api/travel-notes', {
+        const res = await fetch('/api/travel-notes/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
@@ -139,7 +139,7 @@ export default function TravelNotesClient({
     }
 
     try {
-      const res = await fetch('/api/travel-notes', {
+      const res = await fetch('/api/travel-notes/', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })

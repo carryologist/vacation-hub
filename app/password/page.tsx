@@ -13,7 +13,7 @@ export default function PasswordPage() {
 
   useEffect(() => {
     // Fetch config for display (public-safe fields only)
-    fetch('/api/setup/config')
+    fetch('/api/setup/config/')
       .then((res) => res.json())
       .then((data) => {
         if (data.tripName) setTripName(data.tripName)
@@ -30,7 +30,7 @@ export default function PasswordPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/auth', {
+      const response = await fetch('/api/auth/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

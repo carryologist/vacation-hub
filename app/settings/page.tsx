@@ -30,7 +30,7 @@ export default function SettingsPage() {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const res = await fetch('/api/setup/config')
+      const res = await fetch('/api/setup/config/')
       if (!res.ok) throw new Error('Failed to fetch config')
       const data = await res.json()
       setConfig(data)
@@ -51,7 +51,7 @@ export default function SettingsPage() {
     setResetError('')
 
     try {
-      const res = await fetch('/api/setup/config', { method: 'DELETE' })
+      const res = await fetch('/api/setup/config/', { method: 'DELETE' })
       if (!res.ok) throw new Error('Reset failed')
 
       // Clear all vh- localStorage keys
