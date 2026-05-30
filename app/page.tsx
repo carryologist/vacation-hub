@@ -94,7 +94,7 @@ export default async function Home() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8 mb-16">
           {/* Stay Info Tile */}
           <div
             className="feature-tile"
@@ -197,6 +197,32 @@ export default async function Home() {
             </p>
             <Link href="/itinerary" className="primary-cta-button-small">
               Build Schedule
+            </Link>
+          </div>
+
+          {/* Weather Tile */}
+          <div
+            className="feature-tile"
+            style={{ borderTopColor: "#f59e0b" }}
+          >
+            <div
+              className="w-3 h-3 rounded-full mb-6"
+              style={{ backgroundColor: "#f59e0b" }}
+            ></div>
+            <h3
+              className="text-2xl font-bold mb-4"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Weather
+            </h3>
+            <p
+              className="leading-relaxed mb-6"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Check the forecast for {destination} and get packing tips.
+            </p>
+            <Link href="/weather" className="primary-cta-button-small">
+              View Weather
             </Link>
           </div>
         </div>

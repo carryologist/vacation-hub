@@ -41,6 +41,7 @@ const MobileNavigation = () => {
     { href: '/photos', label: 'Photos' },
     { href: '/itinerary', label: 'Schedule' },
     { href: '/travel-notes', label: 'Travel' },
+    { href: '/weather', label: 'Weather' },
     { href: '/settings', label: 'Settings' },
   ]
 
