@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ActivitySuggestionForm from "./ActivitySuggestionForm";
 import { ActivitySuggestion as DbActivitySuggestion } from '../lib/db';
 
@@ -13,7 +13,6 @@ interface ActivitySuggestion {
   website: string;
   category: string;
   notes: string;
-  image_url?: string;
   created_at: string;
 }
 
@@ -23,7 +22,6 @@ interface Activity {
   description: string;
   location: string;
   website?: string;
-  image?: string;
   highlights?: string[];
   isUserSubmitted?: boolean;
   submittedBy?: string;
@@ -46,68 +44,32 @@ interface CategoryGroup {
   activities: Activity[];
 }
 
-// Client component for activity cards
-function ActivityCard({ 
-  activity, 
-  categoryIcon, 
-  categoryIndex, 
-  activityIndex,
+function ActivityCard({
+  activity,
   categoryName,
   onDelete,
   onEdit,
   voteSummary,
-  voterName,
   onVote,
-  onPromptName,
-}: { 
+  voteLoading,
+}: {
   activity: Activity
-  categoryIcon: string
-  categoryIndex: number
-  activityIndex: number
   categoryName?: string
   onDelete?: (activityId: string) => void
   onEdit?: (activity: Activity) => void
   voteSummary?: VoteSummary
-  voterName: string | null
   onVote: (activityId: string, vote: 1 | -1) => void
-  onPromptName: () => void
+  voteLoading: boolean
 }) {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [fetchedImage, setFetchedImage] = useState<string | null>(null)
-  const [voteLoading, setVoteLoading] = useState(false)
-
-  // Fetch a photo from the og-image API when the activity has no image
-  useEffect(() => {
-    if (activity.image || !activity.name) return
-    let cancelled = false
-    const params = new URLSearchParams()
-    if (activity.website) {
-      params.set('url', activity.website)
-    }
-    const queryParts = [activity.name, categoryName, activity.category].filter(Boolean).join(' ')
-    params.set('query', queryParts)
-    fetch(`/api/og-image?${params.toString()}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!cancelled && data.imageUrl) {
-          setFetchedImage(data.imageUrl)
-        }
-      })
-      .catch(() => { /* keep emoji fallback */ })
-    return () => { cancelled = true }
-  }, [activity.image, activity.name, activity.website, categoryName, activity.category])
-
-  const displayImage = activity.image || fetchedImage
 
   const handleDelete = async () => {
     if (!activity.id || !onDelete) return
-    
     if (confirm(`Are you sure you want to delete "${activity.name}"? This action cannot be undone.`)) {
       setIsDeleting(true)
       try {
         await onDelete(activity.id)
       } catch {
-        console.error('Delete failed:')
         alert('Failed to delete activity. Please try again.')
       } finally {
         setIsDeleting(false)
@@ -115,206 +77,166 @@ function ActivityCard({
     }
   }
 
+  const score = voteSummary?.score ?? 0;
+
   return (
-    <div 
-      className={`card hover:scale-[1.02] transition-transform duration-300 ${
-        activity.isUserSubmitted 
-          ? 'border-2' 
-          : ''
-      }`}
-      style={activity.isUserSubmitted ? { borderColor: 'var(--brand)', background: 'var(--brand-light)' } : undefined}
+    <div
+      className="rounded-xl p-4 sm:p-5 transition-all"
+      style={{
+        background: 'var(--bg-card)',
+        border: activity.isUserSubmitted
+          ? '2px solid var(--brand)'
+          : '1px solid var(--border)',
+      }}
     >
-      <div className="grid lg:grid-cols-[300px_1fr] gap-4 lg:gap-6">
-        {/* Activity Image */}
-        <div className="relative aspect-[16/9] lg:aspect-[3/2] rounded-lg overflow-hidden">
-          {displayImage ? (
-            <img 
-              src={displayImage} 
-              alt={activity.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback to gradient if image fails to load
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.nextElementSibling?.classList.remove('hidden');
-              }}
-            />
-          ) : null}
-          <div 
-            className={`w-full h-full flex items-center justify-center ${
-              displayImage ? 'hidden' : ''
-            }`}
-            style={{ background: 'var(--brand-light)' }}
-          >
-            <span className="text-4xl">{categoryIcon}</span>
-          </div>
-        </div>
-        
-        {/* Activity Content */}
-        <div className="flex flex-col px-2 sm:px-0">
-          <div className="flex-1">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="font-display text-xl font-semibold">
-                {activity.name}
-              </h3>
-            </div>
-            
-            <p className="mb-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              {activity.description}
-            </p>
-            
-            {activity.highlights && activity.highlights.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {activity.highlights.map((highlight, index) => (
-                  <span 
-                    key={index}
-                    className="badge badge-primary text-xs"
-                  >
-                    {highlight}
-                  </span>
-                ))}
-              </div>
-            )}
-            
-            {activity.notes && (
-              <div className="rounded-lg p-3 mb-4 mx-0" style={{ background: 'var(--brand-light)', border: '1px solid color-mix(in srgb, var(--brand) 30%, transparent)' }}>
-                <p className="text-sm break-words" style={{ color: 'var(--text-primary)' }}>
-                  <strong>💡 Tip:</strong> {activity.notes}
-                </p>
-              </div>
-            )}
-          </div>
-          
-          {/* Voting */}
-          {activity.id && (
-            <div
-              className="flex items-center gap-3 pt-3 mb-2"
-              style={{ borderTop: '1px solid color-mix(in srgb, var(--border) 50%, transparent)' }}
+      <div className="flex gap-4">
+        {/* Vote column */}
+        {activity.id && (
+          <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-0.5">
+            <button
+              onClick={() => activity.id && onVote(activity.id, 1)}
+              disabled={voteLoading}
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all hover:scale-110 active:scale-95 disabled:opacity-50"
+              style={{ background: 'color-mix(in srgb, #10b981 10%, transparent)' }}
+              title="Upvote"
             >
-              <button
-                onClick={async () => {
-                  if (!voterName) { onPromptName(); return; }
-                  if (!activity.id) return;
-                  setVoteLoading(true);
-                  await onVote(activity.id, 1);
-                  setVoteLoading(false);
-                }}
-                disabled={voteLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
-                style={{
-                  background: 'color-mix(in srgb, #10b981 12%, transparent)',
-                  color: '#10b981',
-                  border: '1px solid color-mix(in srgb, #10b981 25%, transparent)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #10b981 22%, transparent)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #10b981 12%, transparent)'; }}
-              >
-                👍 {voteSummary?.upvotes ?? 0}
-              </button>
-              <button
-                onClick={async () => {
-                  if (!voterName) { onPromptName(); return; }
-                  if (!activity.id) return;
-                  setVoteLoading(true);
-                  await onVote(activity.id, -1);
-                  setVoteLoading(false);
-                }}
-                disabled={voteLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
-                style={{
-                  background: 'color-mix(in srgb, #ef4444 12%, transparent)',
-                  color: '#ef4444',
-                  border: '1px solid color-mix(in srgb, #ef4444 25%, transparent)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #ef4444 22%, transparent)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #ef4444 12%, transparent)'; }}
-              >
-                👎 {voteSummary?.downvotes ?? 0}
-              </button>
-              {(voteSummary?.score ?? 0) !== 0 && (
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style={{
-                    background: (voteSummary?.score ?? 0) > 0
-                      ? 'color-mix(in srgb, #10b981 15%, transparent)'
-                      : 'color-mix(in srgb, #ef4444 15%, transparent)',
-                    color: (voteSummary?.score ?? 0) > 0 ? '#10b981' : '#ef4444',
-                  }}
+              👍
+            </button>
+            <span
+              className="text-sm font-bold tabular-nums min-w-[1.5rem] text-center"
+              style={{
+                color: score > 0 ? '#10b981' : score < 0 ? '#ef4444' : 'var(--text-muted)',
+              }}
+            >
+              {score > 0 ? `+${score}` : score}
+            </span>
+            <button
+              onClick={() => activity.id && onVote(activity.id, -1)}
+              disabled={voteLoading}
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all hover:scale-110 active:scale-95 disabled:opacity-50"
+              style={{ background: 'color-mix(in srgb, #ef4444 10%, transparent)' }}
+              title="Downvote"
+            >
+              👎
+            </button>
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-display text-lg font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
+              {activity.name}
+            </h3>
+            {/* Action buttons */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(activity)}
+                  className="p-1.5 rounded-lg transition-colors text-sm"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.background = 'var(--bg-elevated)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
+                  title="Edit"
                 >
-                  {(voteSummary?.score ?? 0) > 0 ? '+' : ''}{voteSummary?.score ?? 0}
-                </span>
+                  ✏️
+                </button>
               )}
+              {onDelete && activity.id && (
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="p-1.5 rounded-lg transition-colors text-sm disabled:opacity-50"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={(e) => { if (!isDeleting) { e.currentTarget.style.color = 'var(--accent-red)'; e.currentTarget.style.background = 'var(--bg-elevated)'; } }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
+                  title="Delete"
+                >
+                  {isDeleting ? '⏳' : '🗑️'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <p className="text-sm mt-1.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            {activity.description}
+          </p>
+
+          {activity.highlights && activity.highlights.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {activity.highlights.map((highlight, index) => (
+                <span
+                  key={index}
+                  className="text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}
+                >
+                  {highlight}
+                </span>
+              ))}
             </div>
           )}
 
-          {/* Activity Footer */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 gap-3 sm:gap-0" style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {activity.location && (
-                <span className="flex items-center gap-1">
-                  📍 {activity.location}
-                </span>
-              )}
-              {activity.isUserSubmitted && activity.submittedBy && (
-                <span className="flex items-center gap-1">
-                  👤 Suggested by {activity.submittedBy}
-                </span>
-              )}
+          {activity.notes && (
+            <div
+              className="rounded-lg p-2.5 mt-2 text-sm"
+              style={{ background: 'var(--brand-light)', border: '1px solid color-mix(in srgb, var(--brand) 20%, transparent)' }}
+            >
+              <strong>💡</strong> {activity.notes}
             </div>
-            
-            <div className="flex flex-wrap items-center gap-2">
-              {activity.website && (
-                <a
-                  href={activity.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary text-sm"
-                >
-                  Visit Website
-                </a>
-              )}
-              
-              {/* Edit/Delete Buttons */}
-              <div className="flex items-center gap-1">
-                {onEdit && (
-                  <button
-                    onClick={() => onEdit(activity)}
-                    className="p-2 rounded-lg transition-colors"
-                    style={{ color: 'var(--accent-blue)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-elevated)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                    title="Edit activity"
-                  >
-                    ✏️
-                  </button>
-                )}
-                {onDelete && activity.id && (
-                  <button
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="p-2 rounded-lg transition-colors disabled:opacity-50"
-                    style={{ color: 'var(--accent-red)' }}
-                    onMouseEnter={(e) => { if (!isDeleting) e.currentTarget.style.background = 'var(--bg-elevated)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                    title="Delete activity"
-                  >
-                    {isDeleting ? '⏳' : '🗑️'}
-                  </button>
-                )}
-              </div>
-            </div>
+          )}
+
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+            {activity.location && (
+              <span>📍 {activity.location}</span>
+            )}
+            {activity.isUserSubmitted && activity.submittedBy && (
+              <span>Suggested by {activity.submittedBy}</span>
+            )}
+            {categoryName && (
+              <span
+                className="px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}
+              >
+                {categoryName}
+              </span>
+            )}
+            {activity.website && (
+              <a
+                href={activity.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium transition-colors"
+                style={{ color: 'var(--brand)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+              >
+                Visit Website →
+              </a>
+            )}
           </div>
+
+          {/* Vote details - small text under meta */}
+          {voteSummary && (voteSummary.upvotes > 0 || voteSummary.downvotes > 0) && (
+            <div className="flex items-center gap-3 mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {voteSummary.upvotes > 0 && (
+                <span style={{ color: '#10b981' }}>{voteSummary.upvotes} upvote{voteSummary.upvotes !== 1 ? 's' : ''}</span>
+              )}
+              {voteSummary.downvotes > 0 && (
+                <span style={{ color: '#ef4444' }}>{voteSummary.downvotes} downvote{voteSummary.downvotes !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-export default function ThingsToDoClient({ 
+export default function ThingsToDoClient({
   initialActivities,
   initialUserSuggestions,
   destination,
-  tripName,
 }: {
   initialActivities: CategoryGroup[]
   initialUserSuggestions: ActivitySuggestion[]
@@ -345,6 +267,11 @@ export default function ThingsToDoClient({
   })
   const [showNamePrompt, setShowNamePrompt] = useState(false)
   const [pendingVote, setPendingVote] = useState<{ activityId: string; vote: 1 | -1 } | null>(null)
+  const [voteLoading, setVoteLoading] = useState(false)
+
+  // Use a ref for voterName so the vote handler always has the latest value
+  const voterNameRef = useRef(voterName);
+  useEffect(() => { voterNameRef.current = voterName; }, [voterName]);
 
   // Fetch fresh suggestions from database
   const fetchFreshSuggestions = async () => {
@@ -352,8 +279,7 @@ export default function ThingsToDoClient({
       const res = await fetch('/api/activities');
       if (!res.ok) throw new Error('Failed to fetch activities');
       const data: DbActivitySuggestion[] = await res.json();
-      
-      // Convert DB format to ActivitySuggestion format
+
       const mapped = data.map(suggestion => ({
         id: suggestion.id?.toString() || Date.now().toString(),
         name: suggestion.suggested_by || 'Anonymous',
@@ -363,12 +289,10 @@ export default function ThingsToDoClient({
         website: suggestion.url || '',
         category: suggestion.category,
         notes: suggestion.notes || '',
-        image_url: suggestion.image_url || '',
         created_at: suggestion.created_at || new Date().toISOString()
       }));
 
-      // Fuzzy deduplicate: if title A contains title B (or vice versa),
-      // or they share enough significant words, keep only the first one.
+      // Fuzzy deduplicate
       const freshUserSuggestions: typeof mapped = [];
       const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
       const significantWords = (s: string) =>
@@ -379,9 +303,7 @@ export default function ThingsToDoClient({
         const words = significantWords(item.activity_name);
         const isDupe = freshUserSuggestions.some(existing => {
           const existingNorm = normalize(existing.activity_name);
-          // Substring match: "Grand Ole Opry" is inside "Grand Ole Opry Show"
           if (existingNorm.includes(norm) || norm.includes(existingNorm)) return true;
-          // Shared-word match: must share majority of the shorter title's words
           const existingWords = significantWords(existing.activity_name);
           const shared = words.filter(w => existingWords.includes(w)).length;
           const shorter = Math.min(words.length, existingWords.length);
@@ -390,7 +312,7 @@ export default function ThingsToDoClient({
         });
         if (!isDupe) freshUserSuggestions.push(item);
       }
-      
+
       setFreshSuggestions(freshUserSuggestions);
     } catch {
       console.error('Failed to fetch fresh activity suggestions:');
@@ -405,80 +327,88 @@ export default function ThingsToDoClient({
       const data: VoteSummary[] = await res.json();
       setVoteSummaries(data);
     } catch {
-      // Non-critical - votes just won't show counts
+      // Non-critical
     }
   }, []);
 
-  // Handle voting
-  const handleVote = useCallback(async (activityId: string, vote: 1 | -1) => {
-    if (!voterName) return;
+  // Cast a vote — uses ref so it always sees the latest voterName
+  const castVote = useCallback(async (activityId: string, vote: 1 | -1, name: string) => {
+    setVoteLoading(true);
     try {
       await fetch('/api/activities/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           activity_id: Number(activityId),
-          voter_name: voterName,
+          voter_name: name,
           vote,
         }),
       });
       await fetchVotes();
     } catch {
       console.error('Failed to cast vote');
+    } finally {
+      setVoteLoading(false);
     }
-  }, [voterName, fetchVotes]);
+  }, [fetchVotes]);
+
+  // Handle vote button click — prompts for name if needed
+  const handleVote = useCallback((activityId: string, vote: 1 | -1) => {
+    const currentName = voterNameRef.current;
+    if (!currentName) {
+      setPendingVote({ activityId, vote });
+      setShowNamePrompt(true);
+      return;
+    }
+    castVote(activityId, vote, currentName);
+  }, [castVote]);
+
+  // When voter name is submitted, fire the pending vote
+  const handleNameSubmit = useCallback((name: string) => {
+    setVoterName(name);
+    voterNameRef.current = name;
+    localStorage.setItem('vh-voter-name', name);
+    setShowNamePrompt(false);
+    if (pendingVote) {
+      castVote(pendingVote.activityId, pendingVote.vote, name);
+      setPendingVote(null);
+    }
+  }, [pendingVote, castVote]);
 
   // Get vote summary for a specific activity
   const getVoteSummary = useCallback((activityId: string): VoteSummary | undefined => {
     return voteSummaries.find(v => v.activity_id === Number(activityId));
   }, [voteSummaries]);
 
-  // Prompt for voter name
-  const handlePromptName = useCallback(() => {
-    setShowNamePrompt(true);
-  }, []);
-
-  // Refresh fresh suggestions from Supabase
   const refreshData = async () => {
     await fetchFreshSuggestions();
     await fetchVotes();
   };
 
-  // Load user suggestions from localStorage and merge with fresh Supabase data
+  // Initial load
   useEffect(() => {
     fetchFreshSuggestions();
     fetchVotes();
   }, [fetchVotes]);
 
-  // Update activities when fresh suggestions change
+  // Merge suggestions into categories
   useEffect(() => {
-    // If we have fresh suggestions from Supabase, ignore initial suggestions to prevent duplicates
     let allUserSuggestions: ActivitySuggestion[] = [];
-    
+
     if (freshSuggestions.length > 0) {
-      // Use only fresh suggestions from database, ignore initial suggestions
       allUserSuggestions = [...freshSuggestions];
     } else {
-      // Fallback to initial suggestions and localStorage if no fresh data
-      
-      // Clean up localStorage - remove any suggestions that already exist in initialUserSuggestions
       const storedSuggestions = localStorage.getItem('vh-activity-suggestions');
       if (storedSuggestions && initialUserSuggestions.length > 0) {
         const localSuggestions: ActivitySuggestion[] = JSON.parse(storedSuggestions);
-        
-        // Filter out any local suggestions that match initial suggestions by name
-        const filteredLocalSuggestions = localSuggestions.filter(localSugg => 
-          !initialUserSuggestions.some(dbSugg => {
-            const nameMatch = dbSugg.activity_name.toLowerCase().trim() === localSugg.activity_name.toLowerCase().trim();
-            return nameMatch;
-          })
+        const filteredLocalSuggestions = localSuggestions.filter(localSugg =>
+          !initialUserSuggestions.some(dbSugg =>
+            dbSugg.activity_name.toLowerCase().trim() === localSugg.activity_name.toLowerCase().trim()
+          )
         );
-        
-        // Update localStorage with cleaned data
         if (filteredLocalSuggestions.length !== localSuggestions.length) {
           localStorage.setItem('vh-activity-suggestions', JSON.stringify(filteredLocalSuggestions));
         }
-        
         allUserSuggestions = [...initialUserSuggestions, ...filteredLocalSuggestions];
       } else {
         const cleanedStoredSuggestions = localStorage.getItem('vh-activity-suggestions');
@@ -486,45 +416,38 @@ export default function ThingsToDoClient({
         allUserSuggestions = [...initialUserSuggestions, ...userSuggestions];
       }
     }
-    
+
     if (allUserSuggestions.length > 0) {
-      // Filter out deleted curated activities
       const updatedActivities = initialActivities.map(group => ({
         ...group,
         activities: group.activities.filter(a => !a.id || !deletedIds.has(a.id))
       }));
-      
-      // Add user suggestions to existing categories
+
       allUserSuggestions.forEach(suggestion => {
         const categoryIndex = updatedActivities.findIndex(group => group.category === suggestion.category);
-        
+
         const userActivity: Activity = {
           id: suggestion.id,
           name: suggestion.activity_name,
           description: suggestion.description,
           location: suggestion.location,
           website: suggestion.website || undefined,
-          image: suggestion.image_url || undefined,
           isUserSubmitted: true,
           submittedBy: suggestion.name,
           notes: suggestion.notes || undefined,
           category: suggestion.category
         };
-        
+
         if (categoryIndex >= 0) {
-          // Check if this activity already exists in the category to prevent duplicates
           const existingActivity = updatedActivities[categoryIndex].activities.find(
-            activity => activity.id === userActivity.id || 
+            activity => activity.id === userActivity.id ||
             (activity.name.toLowerCase().trim() === userActivity.name.toLowerCase().trim() &&
              activity.description.toLowerCase().trim() === userActivity.description.toLowerCase().trim())
           );
-          
           if (!existingActivity) {
-            // Add to existing category only if it doesn't already exist
             updatedActivities[categoryIndex].activities.push(userActivity);
           }
         } else {
-          // Create new category
           const getCategoryIcon = (category: string) => {
             const iconMap: { [key: string]: string } = {
               "Restaurants": "🍽️",
@@ -536,7 +459,6 @@ export default function ThingsToDoClient({
             };
             return iconMap[category] || "📌";
           };
-          
           updatedActivities.push({
             category: suggestion.category,
             icon: getCategoryIcon(suggestion.category),
@@ -544,10 +466,9 @@ export default function ThingsToDoClient({
           });
         }
       });
-      
+
       setActivities(updatedActivities);
     } else {
-      // If no user suggestions, just filter deleted curated activities
       setActivities(initialActivities.map(group => ({
         ...group,
         activities: group.activities.filter(a => !a.id || !deletedIds.has(a.id))
@@ -555,7 +476,7 @@ export default function ThingsToDoClient({
     }
   }, [initialActivities, freshSuggestions, initialUserSuggestions, deletedIds]);
 
-  // Compute sorted/grouped activities based on sort mode
+  // Compute display order based on sort mode
   const displayActivities = useMemo(() => {
     const nonEmpty = activities.filter(cg => cg.activities.length > 0);
 
@@ -566,16 +487,11 @@ export default function ThingsToDoClient({
     };
 
     if (sortMode === 'popularity') {
-      // Flatten all activities, sort by score desc, group into one flat list
       const all = nonEmpty.flatMap(cg =>
-        cg.activities.map(a => ({ ...a, _categoryIcon: cg.icon, _categoryName: cg.category }))
+        cg.activities.map(a => ({ ...a, _categoryName: cg.category }))
       );
       all.sort((a, b) => getScore(b) - getScore(a));
-      return [{
-        category: 'Most Popular',
-        icon: '🔥',
-        activities: all,
-      }];
+      return [{ category: 'Most Popular', icon: '🔥', activities: all }];
     }
 
     // Category mode: sort activities within each category by popularity
@@ -587,7 +503,6 @@ export default function ThingsToDoClient({
 
   const handleDeleteActivity = async (activityId: string) => {
     try {
-      // Try to delete from database (works for DB-stored suggestions)
       try {
         await fetch('/api/activities', {
           method: 'DELETE',
@@ -595,36 +510,29 @@ export default function ThingsToDoClient({
           body: JSON.stringify({ id: activityId })
         });
       } catch {
-        // Ignore — may be a curated (non-DB) activity
+        // May be a curated (non-DB) activity
       }
 
-      // Persist deletion for curated activities
       const newDeletedIds = new Set(deletedIds);
       newDeletedIds.add(activityId);
       setDeletedIds(newDeletedIds);
       localStorage.setItem('vh-deleted-activities', JSON.stringify([...newDeletedIds]));
 
-      // Also remove from localStorage suggestions
       const storedSuggestions = localStorage.getItem('vh-activity-suggestions');
       const userSuggestions: ActivitySuggestion[] = storedSuggestions ? JSON.parse(storedSuggestions) : [];
       const filteredSuggestions = userSuggestions.filter(s => s.id !== activityId);
       localStorage.setItem('vh-activity-suggestions', JSON.stringify(filteredSuggestions));
-      
-      // Update state immediately for better UX
+
       const updatedActivities = activities.map(category => ({
         ...category,
         activities: category.activities.filter(activity => activity.id !== activityId)
       })).filter(category => category.activities.length > 0);
-      
       setActivities(updatedActivities);
-      
     } catch {
-      console.error('Error deleting activity:');
       const updatedActivities = activities.map(category => ({
         ...category,
         activities: category.activities.filter(activity => activity.id !== activityId)
       })).filter(category => category.activities.length > 0);
-      
       setActivities(updatedActivities);
     }
   };
@@ -636,18 +544,16 @@ export default function ThingsToDoClient({
   const handleUpdateActivity = async (updatedActivity: Activity) => {
     const updatedActivities = activities.map(category => ({
       ...category,
-      activities: category.activities.map(activity => 
+      activities: category.activities.map(activity =>
         activity.id === updatedActivity.id ? updatedActivity : activity
       )
     }));
-    
+
     setActivities(updatedActivities);
     setEditingActivity(null);
-    
-    // Update DB if it's a user-submitted activity with a numeric DB id
+
     if (updatedActivity.isUserSubmitted) {
-  
-    const numericId = Number(updatedActivity.id);
+      const numericId = Number(updatedActivity.id);
       if (!isNaN(numericId) && String(numericId) === String(updatedActivity.id)) {
         try {
           await fetch('/api/activities', {
@@ -666,10 +572,9 @@ export default function ThingsToDoClient({
           console.error('Error updating activity in DB:');
         }
       }
-      // Also update localStorage as a fallback
       const storedSuggestions = localStorage.getItem('vh-activity-suggestions');
       const userSuggestions: ActivitySuggestion[] = storedSuggestions ? JSON.parse(storedSuggestions) : [];
-      const updatedSuggestions = userSuggestions.map(suggestion => 
+      const updatedSuggestions = userSuggestions.map(suggestion =>
         suggestion.id === updatedActivity.id ? {
           ...suggestion,
           activity_name: updatedActivity.name,
@@ -683,111 +588,138 @@ export default function ThingsToDoClient({
     }
   };
 
+  const totalActivities = activities.reduce((sum, cg) => sum + cg.activities.length, 0);
+
   return (
-    <div className="container space-y-8 animate-fade-in">
+    <div className="container space-y-6 animate-fade-in">
       {/* Header */}
       <div className="text-center">
         <div className="badge badge-primary mb-4">🎆 Things to Do</div>
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4">
           Things to Do{destination ? ` in ` : ''}{destination ? <span className="text-gradient">{destination}</span> : <span className="text-gradient"></span>}
         </h1>
-        <p className="text-lg max-w-2xl mx-auto mb-8" style={{ color: 'var(--text-secondary)' }}>
-          Discover the best activities, restaurants, and attractions{destination ? ` in ${destination}` : ''}.
+        <p className="text-lg max-w-2xl mx-auto mb-6" style={{ color: 'var(--text-secondary)' }}>
+          Suggest activities, vote on your favorites, and plan together.
         </p>
-        
-        {/* Suggestion Form Toggle */}
-        <button
-          onClick={() => setShowSuggestionForm(!showSuggestionForm)}
-          className="btn btn-primary"
-        >
-          {showSuggestionForm ? '❌ Close Form' : '💡 Suggest an Activity'}
-        </button>
-      </div>
-      
-      {/* Activity Suggestion Form */}
-      {showSuggestionForm && (
-        <div className="mb-8">
-          <ActivitySuggestionForm 
-            onClose={() => setShowSuggestionForm(false)} 
-            onSuccess={refreshData}
-          />
-        </div>
-      )}
-      
-      {/* Sort Toggle */}
-      <div className="flex items-center justify-center gap-2">
-        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Sort by:</span>
-        <div
-          className="inline-flex rounded-lg overflow-hidden"
-          style={{ border: '1px solid var(--border)' }}
-        >
+
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <button
-            onClick={() => setSortMode('category')}
-            className="px-4 py-2 text-sm font-medium transition-all"
-            style={{
-              background: sortMode === 'category' ? 'var(--brand)' : 'var(--bg-elevated)',
-              color: sortMode === 'category' ? 'white' : 'var(--text-secondary)',
-            }}
+            onClick={() => setShowSuggestionForm(!showSuggestionForm)}
+            className="btn btn-primary"
           >
-            By Type
+            {showSuggestionForm ? '✕ Close' : '+ Suggest an Activity'}
           </button>
-          <button
-            onClick={() => setSortMode('popularity')}
-            className="px-4 py-2 text-sm font-medium transition-all"
-            style={{
-              background: sortMode === 'popularity' ? 'var(--brand)' : 'var(--bg-elevated)',
-              color: sortMode === 'popularity' ? 'white' : 'var(--text-secondary)',
-              borderLeft: '1px solid var(--border)',
-            }}
+
+          {/* Sort toggle */}
+          <div
+            className="inline-flex rounded-lg overflow-hidden"
+            style={{ border: '1px solid var(--border)' }}
           >
-            By Popularity
-          </button>
+            <button
+              onClick={() => setSortMode('category')}
+              className="px-4 py-2 text-sm font-medium transition-all"
+              style={{
+                background: sortMode === 'category' ? 'var(--brand)' : 'var(--bg-elevated)',
+                color: sortMode === 'category' ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              By Type
+            </button>
+            <button
+              onClick={() => setSortMode('popularity')}
+              className="px-4 py-2 text-sm font-medium transition-all"
+              style={{
+                background: sortMode === 'popularity' ? 'var(--brand)' : 'var(--bg-elevated)',
+                color: sortMode === 'popularity' ? 'white' : 'var(--text-secondary)',
+                borderLeft: '1px solid var(--border)',
+              }}
+            >
+              By Popularity
+            </button>
+          </div>
         </div>
+
+        {/* Activity count */}
+        {totalActivities > 0 && (
+          <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>
+            {totalActivities} activit{totalActivities === 1 ? 'y' : 'ies'} suggested
+          </p>
+        )}
       </div>
 
+      {/* Suggestion Form */}
+      {showSuggestionForm && (
+        <ActivitySuggestionForm
+          onClose={() => setShowSuggestionForm(false)}
+          onSuccess={refreshData}
+        />
+      )}
+
       {/* Activities */}
-      <div className="space-y-12">
-        {displayActivities.map((categoryGroup, index) => (
-          <div key={categoryGroup.category} className="space-y-6">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">{categoryGroup.icon}</span>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold">
-                {categoryGroup.category}
-              </h2>
+      {totalActivities === 0 ? (
+        <div
+          className="text-center py-16 rounded-xl"
+          style={{ background: 'var(--bg-elevated)', border: '1px dashed var(--border)' }}
+        >
+          <p className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            No activities yet
+          </p>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Be the first to suggest something for the group!
+          </p>
+          <button
+            onClick={() => setShowSuggestionForm(true)}
+            className="btn btn-primary"
+          >
+            + Suggest an Activity
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {displayActivities.map((categoryGroup) => (
+            <div key={categoryGroup.category} className="space-y-3">
+              <div className="flex items-center gap-2.5 px-1">
+                <span className="text-2xl">{categoryGroup.icon}</span>
+                <h2 className="font-display text-xl sm:text-2xl font-bold">
+                  {categoryGroup.category}
+                </h2>
+                <span
+                  className="text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                >
+                  {categoryGroup.activities.length}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {categoryGroup.activities.map((activity, activityIndex) => (
+                  <ActivityCard
+                    key={activity.id || `${categoryGroup.category}-${activityIndex}`}
+                    activity={activity}
+                    categoryName={sortMode === 'popularity' ? activity.category : undefined}
+                    onDelete={handleDeleteActivity}
+                    onEdit={handleEditActivity}
+                    voteSummary={activity.id ? getVoteSummary(activity.id) : undefined}
+                    onVote={handleVote}
+                    voteLoading={voteLoading}
+                  />
+                ))}
+              </div>
             </div>
-            
-            <div className="space-y-8">
-              {categoryGroup.activities.map((activity, activityIndex) => (
-                <ActivityCard
-                  key={activity.id || `${categoryGroup.category}-${activityIndex}`}
-                  activity={activity}
-                  categoryIcon={categoryGroup.icon}
-                  categoryIndex={index}
-                  activityIndex={activityIndex}
-                  categoryName={categoryGroup.category}
-                  onDelete={handleDeleteActivity}
-                  onEdit={handleEditActivity}
-                  voteSummary={activity.id ? getVoteSummary(activity.id) : undefined}
-                  voterName={voterName}
-                  onVote={handleVote}
-                  onPromptName={handlePromptName}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      
+          ))}
+        </div>
+      )}
+
       {/* Edit Activity Modal */}
       {editingActivity && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-card)' }}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Edit Activity</h2>
+                <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Edit Activity</h2>
                 <button
                   onClick={() => setEditingActivity(null)}
-                  className="text-2xl transition-colors"
+                  className="text-2xl transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                   style={{ color: 'var(--text-muted)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
@@ -795,105 +727,74 @@ export default function ThingsToDoClient({
                   ×
                 </button>
               </div>
-              
+
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
-                const updatedActivity: Activity = {
+                handleUpdateActivity({
                   ...editingActivity,
                   name: formData.get('name') as string,
                   description: formData.get('description') as string,
                   location: formData.get('location') as string,
                   website: formData.get('website') as string || undefined,
                   notes: formData.get('notes') as string || undefined,
-                };
-                handleUpdateActivity(updatedActivity);
+                });
               }} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Activity Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    defaultValue={editingActivity.name}
-                    required
+                  <input type="text" name="name" defaultValue={editingActivity.name} required
                     className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
                     style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                     onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Description</label>
-                  <textarea
-                    name="description"
-                    defaultValue={editingActivity.description}
-                    required
-                    rows={4}
-                    className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
+                  <textarea name="description" defaultValue={editingActivity.description} required rows={3}
+                    className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all resize-none"
                     style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                     onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 </div>
-                
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Location</label>
+                    <input type="text" name="location" defaultValue={editingActivity.location}
+                      className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
+                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Website</label>
+                    <input type="text" name="website" defaultValue={editingActivity.website || ''} placeholder="example.com"
+                      className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
+                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Location</label>
-                  <input
-                    type="text"
-                    name="location"
-                    defaultValue={editingActivity.location}
-                    required
-                    className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Notes</label>
+                  <textarea name="notes" defaultValue={editingActivity.notes || ''} rows={2}
+                    className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all resize-none"
                     style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                     onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Website (optional)</label>
-                  <input
-                    type="text"
-                    name="website"
-                    defaultValue={editingActivity.website || ''}
-                    placeholder="example.com or https://example.com"
-                    className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Notes (optional)</label>
-                  <textarea
-                    name="notes"
-                    defaultValue={editingActivity.notes || ''}
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setEditingActivity(null)}
-                    className="px-4 py-2 font-medium transition-colors"
+                <div className="flex items-center justify-end gap-3 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                  <button type="button" onClick={() => setEditingActivity(null)}
+                    className="px-4 py-2 font-medium rounded-lg transition-colors"
                     style={{ color: 'var(--text-secondary)' }}
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 text-white font-medium rounded-lg transition-colors"
-                    style={{ background: 'var(--brand)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--brand-hover)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--brand)'; }}
-                  >
+                  <button type="submit" className="btn btn-primary">
                     Save Changes
                   </button>
                 </div>
@@ -905,19 +806,16 @@ export default function ThingsToDoClient({
 
       {/* Voter Name Prompt Modal */}
       {showNamePrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div
             className="rounded-xl shadow-xl max-w-sm w-full p-6"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
           >
-            <h3
-              className="font-display text-xl font-semibold mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h3 className="font-display text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               What&apos;s your name?
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-              So everyone can see who voted.
+              Your name is shown with your votes so the group knows who&apos;s interested.
             </p>
             <form
               onSubmit={(e) => {
@@ -925,14 +823,7 @@ export default function ThingsToDoClient({
                 const fd = new FormData(e.currentTarget);
                 const name = (fd.get('voterName') as string || '').trim();
                 if (!name) return;
-                setVoterName(name);
-                localStorage.setItem('vh-voter-name', name);
-                setShowNamePrompt(false);
-                // If there was a pending vote, execute it
-                if (pendingVote) {
-                  handleVote(pendingVote.activityId, pendingVote.vote);
-                  setPendingVote(null);
-                }
+                handleNameSubmit(name);
               }}
               className="space-y-3"
             >
@@ -961,11 +852,8 @@ export default function ThingsToDoClient({
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary text-sm"
-                >
-                  Save
+                <button type="submit" className="btn btn-primary text-sm">
+                  Save &amp; Vote
                 </button>
               </div>
             </form>

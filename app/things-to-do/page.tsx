@@ -22,6 +22,7 @@ export default async function ThingsToDoPage() {
     <ThingsToDoClient
       initialActivities={emptyCategories}
       initialUserSuggestions={[]}
+      destination={destination}
     />
   );
 }
