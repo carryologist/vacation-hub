@@ -105,6 +105,11 @@ const PUBLIC_API_ROUTES = [
   '/api/db/init',    // DB initialization (idempotent, creates tables)
 ];
 
+/** API routes that handle their own auth (token-based) */
+const SELF_AUTH_API_ROUTES = [
+  '/api/itinerary/export', // Calendar export — accepts ?token= for subscription URLs
+];
+
 /** API routes with mixed auth (some methods public, some protected) */
 const MIXED_AUTH_API_ROUTES = [
   '/api/setup/config', // GET is limited-public (for setup check), POST/DELETE require auth
@@ -134,6 +139,11 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api')) {
     // Public API routes (no auth needed)
     if (isPublicApiRoute(pathname)) {
+      return NextResponse.next();
+    }
+
+    // Self-authenticating routes (handle their own token-based auth)
+    if (SELF_AUTH_API_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
       return NextResponse.next();
     }
 

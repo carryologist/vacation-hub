@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import ItineraryCalendar from './ItineraryCalendar';
 import EventModal from './EventModal';
 import ItineraryPdfUpload from './ItineraryPdfUpload';
+import CalendarExport from './CalendarExport';
 
 // Component interface (camelCase) - matches EventModal interface
 interface ItineraryEvent {
@@ -261,7 +262,7 @@ export default function ItineraryPageClientSupabase({
       )}
       
       {/* Action Buttons */}
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center gap-3 flex-wrap">
         <button
           onClick={() => {
             setSelectedTimeSlot({ date: startDate, time: '12:00' });
@@ -279,6 +280,7 @@ export default function ItineraryPageClientSupabase({
         >
           📄 Upload Itinerary
         </button>
+        <CalendarExport tripName={tripName} />
       </div>
 
       {showPdfUpload && (
