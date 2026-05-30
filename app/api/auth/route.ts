@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConfig } from '@/lib/config';
 import bcrypt from 'bcryptjs';
-import { createAuthToken, getRequiredSecret } from '@/lib/auth';
+import { createAuthToken, getRequiredSecret, createSignedSetupCookie } from '@/lib/auth';
 
 /**
  * In-memory rate limiter for password attempts.
@@ -116,6 +116,16 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: rememberMe === true ? 60 * 60 * 24 * 30 : 60 * 60 * 24, // 30 days or 1 day
+      path: '/',
+    });
+
+    // Also set the setup-done cookie so subsequent requests skip the DB check
+    const setupCookieValue = createSignedSetupCookie(secret);
+    response.cookies.set('vacation-hub-setup-done', setupCookieValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365 * 10, // 10 years
       path: '/',
     });
     

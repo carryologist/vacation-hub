@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { sql } from '@vercel/postgres';
 
 const MAX_TOKEN_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -164,9 +165,26 @@ export async function middleware(request: NextRequest) {
 
   // Gate 1: Setup check — verify HMAC-signed setup cookie
   const setupCookie = request.cookies.get('vacation-hub-setup-done');
-  const setupVerified = setupCookie && secret
+  let setupVerified = setupCookie && secret
     ? await verifySetupCookie(setupCookie.value, secret)
     : false;
+
+  // If cookie is missing/invalid, check the database as source of truth.
+  // The cookie is a performance optimization — visitors who didn't run the
+  // wizard themselves won't have it, but setup may already be complete.
+  if (!setupVerified) {
+    try {
+      const { rows } = await sql`SELECT data->>'setupComplete' AS setup_complete FROM vacation_config WHERE key = 'main'`;
+      if (rows.length > 0 && rows[0].setup_complete === 'true') {
+        setupVerified = true;
+        // Don't set the cookie here — middleware can't reliably set cookies
+        // and continue processing in the same response. The visitor will
+        // get the cookie when they authenticate via /api/auth.
+      }
+    } catch {
+      // Table may not exist yet — treat as not set up
+    }
+  }
 
   if (!setupVerified) {
     if (pathname === '/setup' || pathname.startsWith('/setup')) {
