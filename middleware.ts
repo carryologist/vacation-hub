@@ -103,7 +103,6 @@ const STATIC_EXTENSIONS = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|wo
 const PUBLIC_API_ROUTES = [
   '/api/auth',       // Login endpoint
   '/api/db/init',    // DB initialization (idempotent, creates tables)
-  '/api/db/debug',   // Temporary DB diagnostics
 ];
 
 /** API routes that handle their own auth (token-based) */
