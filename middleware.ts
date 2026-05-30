@@ -194,7 +194,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Gate 2: Auth check (setup is done)
-  if (pathname === '/password') {
+  if (pathname === '/password' || pathname.startsWith('/password/')) {
     return NextResponse.next();
   }
 
