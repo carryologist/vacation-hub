@@ -42,6 +42,14 @@ export interface ActivitySuggestion {
   created_at?: string;
 }
 
+export interface ActivityVote {
+  id?: number;
+  activity_id: number;
+  voter_name: string;
+  vote: 1 | -1;  // 1 = thumbs up, -1 = thumbs down
+  created_at?: string;
+}
+
 export interface Photo {
   id?: number;
   filename: string;
@@ -156,6 +164,45 @@ export async function deleteActivitySuggestion(id: number): Promise<boolean> {
   return (rowCount ?? 0) > 0;
 }
 
+// Activity Votes
+export async function getActivityVotes(): Promise<ActivityVote[]> {
+  const { rows } = await sql<ActivityVote>`SELECT * FROM activity_votes ORDER BY created_at DESC`;
+  return rows;
+}
+
+export async function getActivityVoteSummary(): Promise<{ activity_id: number; upvotes: number; downvotes: number; score: number }[]> {
+  const { rows } = await sql`
+    SELECT 
+      activity_id,
+      COUNT(*) FILTER (WHERE vote = 1) AS upvotes,
+      COUNT(*) FILTER (WHERE vote = -1) AS downvotes,
+      SUM(vote) AS score
+    FROM activity_votes
+    GROUP BY activity_id
+  `;
+  return rows.map(r => ({
+    activity_id: r.activity_id,
+    upvotes: Number(r.upvotes),
+    downvotes: Number(r.downvotes),
+    score: Number(r.score)
+  }));
+}
+
+export async function upsertActivityVote(activityId: number, voterName: string, vote: 1 | -1): Promise<ActivityVote> {
+  const { rows } = await sql<ActivityVote>`
+    INSERT INTO activity_votes (activity_id, voter_name, vote)
+    VALUES (${activityId}, ${voterName}, ${vote})
+    ON CONFLICT (activity_id, voter_name) DO UPDATE SET vote = ${vote}, created_at = NOW()
+    RETURNING *
+  `;
+  return rows[0];
+}
+
+export async function deleteActivityVote(activityId: number, voterName: string): Promise<boolean> {
+  const { rowCount } = await sql`DELETE FROM activity_votes WHERE activity_id = ${activityId} AND voter_name = ${voterName}`;
+  return (rowCount ?? 0) > 0;
+}
+
 // Photos
 export async function getPhotos(limit: number = 20, offset: number = 0): Promise<Photo[]> {
   const { rows } = await sql<Photo>`SELECT * FROM photos ORDER BY uploaded_at DESC LIMIT ${limit} OFFSET ${offset}`;
@@ -244,6 +291,18 @@ export async function initializeDatabase(): Promise<void> {
 
   // Unique index on lowercase title to prevent duplicate activities
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_title_unique ON activity_suggestions (LOWER(title))`;
+
+  // Activity Votes table
+  await sql`
+    CREATE TABLE IF NOT EXISTS activity_votes (
+      id SERIAL PRIMARY KEY,
+      activity_id INTEGER NOT NULL REFERENCES activity_suggestions(id) ON DELETE CASCADE,
+      voter_name TEXT NOT NULL,
+      vote SMALLINT NOT NULL CHECK (vote IN (-1, 1)),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      UNIQUE(activity_id, voter_name)
+    )
+  `;
 
   // Photos table
   await sql`

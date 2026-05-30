@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import ActivitySuggestionForm from "./ActivitySuggestionForm";
 import { ActivitySuggestion as DbActivitySuggestion } from '../lib/db';
 
@@ -31,6 +31,15 @@ interface Activity {
   category?: string;
 }
 
+interface VoteSummary {
+  activity_id: number;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+}
+
+type SortMode = 'category' | 'popularity';
+
 interface CategoryGroup {
   category: string;
   icon: string;
@@ -45,7 +54,11 @@ function ActivityCard({
   activityIndex,
   categoryName,
   onDelete,
-  onEdit
+  onEdit,
+  voteSummary,
+  voterName,
+  onVote,
+  onPromptName,
 }: { 
   activity: Activity
   categoryIcon: string
@@ -54,9 +67,14 @@ function ActivityCard({
   categoryName?: string
   onDelete?: (activityId: string) => void
   onEdit?: (activity: Activity) => void
+  voteSummary?: VoteSummary
+  voterName: string | null
+  onVote: (activityId: string, vote: 1 | -1) => void
+  onPromptName: () => void
 }) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [fetchedImage, setFetchedImage] = useState<string | null>(null)
+  const [voteLoading, setVoteLoading] = useState(false)
 
   // Fetch a photo from the og-image API when the activity has no image
   useEffect(() => {
@@ -167,6 +185,68 @@ function ActivityCard({
             )}
           </div>
           
+          {/* Voting */}
+          {activity.id && (
+            <div
+              className="flex items-center gap-3 pt-3 mb-2"
+              style={{ borderTop: '1px solid color-mix(in srgb, var(--border) 50%, transparent)' }}
+            >
+              <button
+                onClick={async () => {
+                  if (!voterName) { onPromptName(); return; }
+                  if (!activity.id) return;
+                  setVoteLoading(true);
+                  await onVote(activity.id, 1);
+                  setVoteLoading(false);
+                }}
+                disabled={voteLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                style={{
+                  background: 'color-mix(in srgb, #10b981 12%, transparent)',
+                  color: '#10b981',
+                  border: '1px solid color-mix(in srgb, #10b981 25%, transparent)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #10b981 22%, transparent)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #10b981 12%, transparent)'; }}
+              >
+                👍 {voteSummary?.upvotes ?? 0}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!voterName) { onPromptName(); return; }
+                  if (!activity.id) return;
+                  setVoteLoading(true);
+                  await onVote(activity.id, -1);
+                  setVoteLoading(false);
+                }}
+                disabled={voteLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                style={{
+                  background: 'color-mix(in srgb, #ef4444 12%, transparent)',
+                  color: '#ef4444',
+                  border: '1px solid color-mix(in srgb, #ef4444 25%, transparent)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #ef4444 22%, transparent)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, #ef4444 12%, transparent)'; }}
+              >
+                👎 {voteSummary?.downvotes ?? 0}
+              </button>
+              {(voteSummary?.score ?? 0) !== 0 && (
+                <span
+                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style={{
+                    background: (voteSummary?.score ?? 0) > 0
+                      ? 'color-mix(in srgb, #10b981 15%, transparent)'
+                      : 'color-mix(in srgb, #ef4444 15%, transparent)',
+                    color: (voteSummary?.score ?? 0) > 0 ? '#10b981' : '#ef4444',
+                  }}
+                >
+                  {(voteSummary?.score ?? 0) > 0 ? '+' : ''}{voteSummary?.score ?? 0}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Activity Footer */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 gap-3 sm:gap-0" style={{ borderTop: '1px solid var(--border)' }}>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -254,6 +334,18 @@ export default function ThingsToDoClient({
     }
   })
 
+  const [voteSummaries, setVoteSummaries] = useState<VoteSummary[]>([])
+  const [sortMode, setSortMode] = useState<SortMode>('category')
+  const [voterName, setVoterName] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('vh-voter-name');
+    } catch {
+      return null;
+    }
+  })
+  const [showNamePrompt, setShowNamePrompt] = useState(false)
+  const [pendingVote, setPendingVote] = useState<{ activityId: string; vote: 1 | -1 } | null>(null)
+
   // Fetch fresh suggestions from database
   const fetchFreshSuggestions = async () => {
     try {
@@ -305,16 +397,58 @@ export default function ThingsToDoClient({
     }
   };
 
+  // Fetch vote summaries
+  const fetchVotes = useCallback(async () => {
+    try {
+      const res = await fetch('/api/activities/vote');
+      if (!res.ok) return;
+      const data: VoteSummary[] = await res.json();
+      setVoteSummaries(data);
+    } catch {
+      // Non-critical - votes just won't show counts
+    }
+  }, []);
+
+  // Handle voting
+  const handleVote = useCallback(async (activityId: string, vote: 1 | -1) => {
+    if (!voterName) return;
+    try {
+      await fetch('/api/activities/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activity_id: Number(activityId),
+          voter_name: voterName,
+          vote,
+        }),
+      });
+      await fetchVotes();
+    } catch {
+      console.error('Failed to cast vote');
+    }
+  }, [voterName, fetchVotes]);
+
+  // Get vote summary for a specific activity
+  const getVoteSummary = useCallback((activityId: string): VoteSummary | undefined => {
+    return voteSummaries.find(v => v.activity_id === Number(activityId));
+  }, [voteSummaries]);
+
+  // Prompt for voter name
+  const handlePromptName = useCallback(() => {
+    setShowNamePrompt(true);
+  }, []);
+
   // Refresh fresh suggestions from Supabase
   const refreshData = async () => {
     await fetchFreshSuggestions();
+    await fetchVotes();
   };
 
   // Load user suggestions from localStorage and merge with fresh Supabase data
   useEffect(() => {
-    // Fetch fresh data from Supabase first
     fetchFreshSuggestions();
-  }, []);
+    fetchVotes();
+  }, [fetchVotes]);
 
   // Update activities when fresh suggestions change
   useEffect(() => {
@@ -420,6 +554,36 @@ export default function ThingsToDoClient({
       })).filter(group => group.activities.length > 0));
     }
   }, [initialActivities, freshSuggestions, initialUserSuggestions, deletedIds]);
+
+  // Compute sorted/grouped activities based on sort mode
+  const displayActivities = useMemo(() => {
+    const nonEmpty = activities.filter(cg => cg.activities.length > 0);
+
+    const getScore = (a: Activity) => {
+      if (!a.id) return 0;
+      const vs = voteSummaries.find(v => v.activity_id === Number(a.id));
+      return vs?.score ?? 0;
+    };
+
+    if (sortMode === 'popularity') {
+      // Flatten all activities, sort by score desc, group into one flat list
+      const all = nonEmpty.flatMap(cg =>
+        cg.activities.map(a => ({ ...a, _categoryIcon: cg.icon, _categoryName: cg.category }))
+      );
+      all.sort((a, b) => getScore(b) - getScore(a));
+      return [{
+        category: 'Most Popular',
+        icon: '🔥',
+        activities: all,
+      }];
+    }
+
+    // Category mode: sort activities within each category by popularity
+    return nonEmpty.map(cg => ({
+      ...cg,
+      activities: [...cg.activities].sort((a, b) => getScore(b) - getScore(a)),
+    }));
+  }, [activities, voteSummaries, sortMode]);
 
   const handleDeleteActivity = async (activityId: string) => {
     try {
@@ -550,11 +714,40 @@ export default function ThingsToDoClient({
         </div>
       )}
       
-      {/* Activities by Category */}
+      {/* Sort Toggle */}
+      <div className="flex items-center justify-center gap-2">
+        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Sort by:</span>
+        <div
+          className="inline-flex rounded-lg overflow-hidden"
+          style={{ border: '1px solid var(--border)' }}
+        >
+          <button
+            onClick={() => setSortMode('category')}
+            className="px-4 py-2 text-sm font-medium transition-all"
+            style={{
+              background: sortMode === 'category' ? 'var(--brand)' : 'var(--bg-elevated)',
+              color: sortMode === 'category' ? 'white' : 'var(--text-secondary)',
+            }}
+          >
+            By Type
+          </button>
+          <button
+            onClick={() => setSortMode('popularity')}
+            className="px-4 py-2 text-sm font-medium transition-all"
+            style={{
+              background: sortMode === 'popularity' ? 'var(--brand)' : 'var(--bg-elevated)',
+              color: sortMode === 'popularity' ? 'white' : 'var(--text-secondary)',
+              borderLeft: '1px solid var(--border)',
+            }}
+          >
+            By Popularity
+          </button>
+        </div>
+      </div>
+
+      {/* Activities */}
       <div className="space-y-12">
-        {activities
-          .filter(categoryGroup => categoryGroup.activities.length > 0) // Only show categories with activities
-          .map((categoryGroup, index) => (
+        {displayActivities.map((categoryGroup, index) => (
           <div key={categoryGroup.category} className="space-y-6">
             <div className="flex items-center gap-3">
               <span className="text-3xl">{categoryGroup.icon}</span>
@@ -574,6 +767,10 @@ export default function ThingsToDoClient({
                   categoryName={categoryGroup.category}
                   onDelete={handleDeleteActivity}
                   onEdit={handleEditActivity}
+                  voteSummary={activity.id ? getVoteSummary(activity.id) : undefined}
+                  voterName={voterName}
+                  onVote={handleVote}
+                  onPromptName={handlePromptName}
                 />
               ))}
             </div>
@@ -702,6 +899,76 @@ export default function ThingsToDoClient({
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voter Name Prompt Modal */}
+      {showNamePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div
+            className="rounded-xl shadow-xl max-w-sm w-full p-6"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+          >
+            <h3
+              className="font-display text-xl font-semibold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              What&apos;s your name?
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+              So everyone can see who voted.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const name = (fd.get('voterName') as string || '').trim();
+                if (!name) return;
+                setVoterName(name);
+                localStorage.setItem('vh-voter-name', name);
+                setShowNamePrompt(false);
+                // If there was a pending vote, execute it
+                if (pendingVote) {
+                  handleVote(pendingVote.activityId, pendingVote.vote);
+                  setPendingVote(null);
+                }
+              }}
+              className="space-y-3"
+            >
+              <input
+                type="text"
+                name="voterName"
+                required
+                maxLength={100}
+                placeholder="e.g., Sarah"
+                autoFocus
+                className="w-full px-3 py-2 rounded-lg focus:outline-none transition-all"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--brand-glow)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setShowNamePrompt(false); setPendingVote(null); }}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary text-sm"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
