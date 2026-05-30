@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { activity_id, vote } = body;
+    console.log('Vote POST received:', { activity_id, vote, voter_name: body.voter_name });
 
     const voter_name = sanitizeVoterName(body.voter_name);
     if (!voter_name) {
@@ -76,6 +77,7 @@ export async function DELETE(request: NextRequest) {
 export async function GET() {
   try {
     const summaries = await getActivityVoteSummary();
+    console.log('Vote GET: returning', summaries.length, 'summaries');
     return NextResponse.json(summaries);
   } catch (error) {
     console.error('Error fetching vote summaries:', error);

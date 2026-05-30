@@ -290,7 +290,11 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE activity_suggestions ADD COLUMN IF NOT EXISTS image_url TEXT`;
 
   // Unique index on lowercase title to prevent duplicate activities
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_title_unique ON activity_suggestions (LOWER(title))`;
+  try {
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_title_unique ON activity_suggestions (LOWER(title))`;
+  } catch (err) {
+    console.warn('Could not create unique title index (duplicate titles may exist):', err);
+  }
 
   // Activity Votes table
   await sql`

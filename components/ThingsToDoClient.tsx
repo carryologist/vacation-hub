@@ -323,11 +323,14 @@ export default function ThingsToDoClient({
   const fetchVotes = useCallback(async () => {
     try {
       const res = await fetch('/api/activities/vote/');
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.error('fetchVotes failed:', res.status, await res.text().catch(() => ''));
+        return;
+      }
       const data: VoteSummary[] = await res.json();
       setVoteSummaries(data);
-    } catch {
-      // Non-critical
+    } catch (err) {
+      console.error('fetchVotes error:', err);
     }
   }, []);
 
@@ -335,7 +338,7 @@ export default function ThingsToDoClient({
   const castVote = useCallback(async (activityId: string, vote: 1 | -1, name: string) => {
     setVoteLoading(true);
     try {
-      await fetch('/api/activities/vote/', {
+      const res = await fetch('/api/activities/vote/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -344,9 +347,14 @@ export default function ThingsToDoClient({
           vote,
         }),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Vote API error:', res.status, errorData);
+        return;
+      }
       await fetchVotes();
-    } catch {
-      console.error('Failed to cast vote');
+    } catch (err) {
+      console.error('Failed to cast vote:', err);
     } finally {
       setVoteLoading(false);
     }
