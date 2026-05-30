@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseItineraryFromText, getApiKey } from '@/lib/llm';
 import { getConfig } from '@/lib/config';
+import { extractText } from 'unpdf';
 
 // Allow up to 60s for PDF parsing + LLM call
 export const maxDuration = 60;
@@ -31,15 +32,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract text from PDF — dynamic import to avoid pdf-parse test file issue at build time
+    // Extract text from PDF using unpdf (serverless-compatible)
     let text: string;
     try {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const pdf = (await import('pdf-parse')).default;
-      const pdfData = await pdf(buffer);
-      text = pdfData.text;
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      const { text: extractedText } = await extractText(buffer, { mergePages: true });
+      text = extractedText;
     } catch (pdfErr) {
-      console.error('pdf-parse error:', pdfErr);
+      console.error('PDF text extraction error:', pdfErr);
       return NextResponse.json(
         { error: 'Failed to read PDF. The file may be corrupted or password-protected.' },
         { status: 400 }
