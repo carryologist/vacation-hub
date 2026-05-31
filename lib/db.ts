@@ -50,6 +50,21 @@ export interface ActivityVote {
   created_at?: string;
 }
 
+export interface Expense {
+  id?: number;
+  description: string;
+  amount: number;
+  paid_by: string;
+  split_count: number;
+  category: string;
+  vendor?: string;
+  expense_date: string;
+  receipt_url?: string;
+  receipt_filename?: string;
+  notes?: string;
+  created_at?: string;
+}
+
 export interface Photo {
   id?: number;
   filename: string;
@@ -235,6 +250,50 @@ export async function getPhotoById(id: number): Promise<Photo | null> {
   return rows[0] || null;
 }
 
+// Expenses
+export async function getExpenses(): Promise<Expense[]> {
+  const { rows } = await sql<Expense>`SELECT * FROM expenses ORDER BY expense_date DESC, created_at DESC`;
+  return rows;
+}
+
+export async function createExpense(expense: Omit<Expense, 'id' | 'created_at'>): Promise<Expense> {
+  const { rows } = await sql<Expense>`
+    INSERT INTO expenses (description, amount, paid_by, split_count, category, vendor, expense_date, receipt_url, receipt_filename, notes)
+    VALUES (${expense.description}, ${expense.amount}, ${expense.paid_by}, ${expense.split_count}, ${expense.category}, ${expense.vendor || null}, ${expense.expense_date}, ${expense.receipt_url || null}, ${expense.receipt_filename || null}, ${expense.notes || null})
+    RETURNING *
+  `;
+  return rows[0];
+}
+
+export async function updateExpense(id: number, expense: Partial<Expense>): Promise<Expense | null> {
+  const { rows } = await sql<Expense>`
+    UPDATE expenses SET
+      description = COALESCE(${expense.description ?? null}, description),
+      amount = COALESCE(${expense.amount ?? null}, amount),
+      paid_by = COALESCE(${expense.paid_by ?? null}, paid_by),
+      split_count = COALESCE(${expense.split_count ?? null}, split_count),
+      category = COALESCE(${expense.category ?? null}, category),
+      vendor = COALESCE(${expense.vendor}, vendor),
+      expense_date = COALESCE(${expense.expense_date ?? null}, expense_date),
+      receipt_url = COALESCE(${expense.receipt_url}, receipt_url),
+      receipt_filename = COALESCE(${expense.receipt_filename}, receipt_filename),
+      notes = COALESCE(${expense.notes}, notes)
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return rows[0] || null;
+}
+
+export async function deleteExpense(id: number): Promise<boolean> {
+  const { rowCount } = await sql`DELETE FROM expenses WHERE id = ${id}`;
+  return (rowCount ?? 0) > 0;
+}
+
+export async function getExpenseMembers(): Promise<string[]> {
+  const { rows } = await sql`SELECT DISTINCT paid_by FROM expenses ORDER BY paid_by`;
+  return rows.map(r => r.paid_by);
+}
+
 // Initialize database schema
 export async function initializeDatabase(): Promise<void> {
   // Site config table
@@ -305,6 +364,24 @@ export async function initializeDatabase(): Promise<void> {
       vote SMALLINT NOT NULL CHECK (vote IN (-1, 1)),
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       UNIQUE(activity_id, voter_name)
+    )
+  `;
+
+  // Expenses table
+  await sql`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id SERIAL PRIMARY KEY,
+      description TEXT NOT NULL,
+      amount NUMERIC(10,2) NOT NULL,
+      paid_by TEXT NOT NULL,
+      split_count INTEGER NOT NULL DEFAULT 2,
+      category TEXT NOT NULL DEFAULT 'other',
+      vendor TEXT,
+      expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      receipt_url TEXT,
+      receipt_filename TEXT,
+      notes TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     )
   `;
 

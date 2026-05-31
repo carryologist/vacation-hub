@@ -183,6 +183,9 @@ export default async function RootLayout({
               <Link href="/travel-notes" className="nav-link">
                 Travel
               </Link>
+              <Link href="/expenses" className="nav-link">
+                Expenses
+              </Link>
               <Link
                 href="/settings"
                 className="nav-link"
@@ -249,6 +252,9 @@ export default async function RootLayout({
                 </Link>
                 <Link href="/travel-notes" className="nav-link text-sm">
                   Travel
+                </Link>
+                <Link href="/expenses" className="nav-link text-sm">
+                  Expenses
                 </Link>
                 <Link href="/settings" className="nav-link text-sm">
                   Settings

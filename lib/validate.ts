@@ -450,3 +450,71 @@ export const PHOTO_FIELD_LIMITS: Record<string, number> = {
   uploaded_by: MAX_STRING,
   storage_path: MAX_STRING,
 };
+
+// ── Expenses ────────────────────────────────────────────────────────────────
+
+export const EXPENSE_CATEGORIES = ['food', 'drinks', 'transport', 'lodging', 'activities', 'tickets', 'groceries', 'other'] as const;
+
+export const EXPENSE_FIELD_LIMITS = {
+  description: 500,
+  paid_by: 100,
+  vendor: 200,
+  notes: 1000,
+  category: 50,
+};
+
+export function validateExpenseInput(data: Record<string, unknown>): { valid: boolean; error?: string } {
+  const { description, amount, paid_by, split_count, category, expense_date } = data;
+
+  if (!description || typeof description !== 'string' || description.trim().length === 0) {
+    return { valid: false, error: 'Description is required' };
+  }
+  if (description.length > EXPENSE_FIELD_LIMITS.description) {
+    return { valid: false, error: `Description must be under ${EXPENSE_FIELD_LIMITS.description} characters` };
+  }
+
+  if (amount === undefined || amount === null || typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
+    return { valid: false, error: 'Amount must be a positive number' };
+  }
+  if (amount > 999999.99) {
+    return { valid: false, error: 'Amount is too large' };
+  }
+
+  if (!paid_by || typeof paid_by !== 'string' || paid_by.trim().length === 0) {
+    return { valid: false, error: 'Paid by is required' };
+  }
+  if (paid_by.length > EXPENSE_FIELD_LIMITS.paid_by) {
+    return { valid: false, error: `Name must be under ${EXPENSE_FIELD_LIMITS.paid_by} characters` };
+  }
+
+  if (split_count !== undefined) {
+    if (typeof split_count !== 'number' || !Number.isInteger(split_count) || split_count < 1 || split_count > 100) {
+      return { valid: false, error: 'Split count must be between 1 and 100' };
+    }
+  }
+
+  if (category !== undefined) {
+    if (typeof category !== 'string' || !EXPENSE_CATEGORIES.includes(category as typeof EXPENSE_CATEGORIES[number])) {
+      return { valid: false, error: `Category must be one of: ${EXPENSE_CATEGORIES.join(', ')}` };
+    }
+  }
+
+  if (expense_date !== undefined) {
+    if (typeof expense_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(expense_date)) {
+      return { valid: false, error: 'Date must be in YYYY-MM-DD format' };
+    }
+  }
+
+  return { valid: true };
+}
+
+export function sanitizeExpenseInput(data: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = { ...data };
+  const textFields = ['description', 'paid_by', 'vendor', 'notes'] as const;
+  for (const field of textFields) {
+    if (typeof sanitized[field] === 'string') {
+      sanitized[field] = (sanitized[field] as string).replace(/<[^>]*>/g, '').trim();
+    }
+  }
+  return sanitized;
+}

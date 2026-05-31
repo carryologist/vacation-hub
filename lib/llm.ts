@@ -350,3 +350,166 @@ export async function getApiKey(provider: string): Promise<string | null> {
   }
   return null;
 }
+
+// --- Receipt parsing ---
+
+interface ParseReceiptOptions {
+  provider: 'openai' | 'anthropic' | 'gemini';
+  apiKey: string;
+  imageUrl?: string;      // Blob URL for image receipts
+  text?: string;          // Extracted text for PDF receipts
+  mimeType?: string;      // e.g. 'image/jpeg', 'application/pdf'
+}
+
+export interface ParsedReceipt {
+  description: string;
+  amount: number | null;
+  vendor: string;
+  date: string;       // YYYY-MM-DD
+  category: string;   // one of the expense categories
+}
+
+const RECEIPT_SYSTEM_PROMPT = `You are a receipt parser. Extract expense information from receipts. Be precise with amounts. Always respond with valid JSON.`;
+
+function buildReceiptPrompt(): string {
+  return `Extract the following from this receipt:
+- description: Brief description of what was purchased (e.g. "Dinner at Joe's", "Uber to airport")
+- amount: Total amount paid as a number (no currency symbol). Use the total/grand total, not subtotal.
+- vendor: Business/store name
+- date: Date of purchase in YYYY-MM-DD format. If unclear, use today's date.
+- category: One of: food, drinks, transport, lodging, activities, tickets, groceries, other
+
+Respond with ONLY a JSON object, no markdown:
+{"description": "...", "amount": 0.00, "vendor": "...", "date": "YYYY-MM-DD", "category": "..."}`;
+}
+
+async function parseReceiptOpenAI(apiKey: string, prompt: string, imageUrl?: string, text?: string): Promise<ParsedReceipt> {
+  const content: Array<{type: string; text?: string; image_url?: {url: string}}> = [
+    { type: 'text', text: prompt }
+  ];
+  if (imageUrl) {
+    content.push({ type: 'image_url', image_url: { url: imageUrl } });
+  }
+  if (text) {
+    content[0] = { type: 'text', text: `${prompt}\n\nReceipt text:\n${text}` };
+  }
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: RECEIPT_SYSTEM_PROMPT },
+        { role: 'user', content },
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenAI API error: ${res.status}`);
+  const data = await res.json();
+  return JSON.parse(data.choices[0].message.content);
+}
+
+async function parseReceiptAnthropic(apiKey: string, prompt: string, imageUrl?: string, text?: string, mimeType?: string): Promise<ParsedReceipt> {
+  const content: Array<Record<string, unknown>> = [];
+  
+  if (imageUrl) {
+    // Download image and convert to base64 for Anthropic
+    const imgRes = await fetch(imageUrl);
+    const imgBuffer = await imgRes.arrayBuffer();
+    const base64 = Buffer.from(imgBuffer).toString('base64');
+    const mediaType = mimeType || 'image/jpeg';
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: mediaType, data: base64 },
+    });
+  }
+  
+  const textContent = text ? `${prompt}\n\nReceipt text:\n${text}` : prompt;
+  content.push({ type: 'text', text: textContent });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      temperature: 0.1,
+      messages: [{ role: 'user', content }],
+      system: RECEIPT_SYSTEM_PROMPT,
+    }),
+  });
+  if (!res.ok) throw new Error(`Anthropic API error: ${res.status}`);
+  const data = await res.json();
+  const responseText = data.content[0]?.text || '{}';
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  return JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
+}
+
+async function parseReceiptGemini(apiKey: string, prompt: string, imageUrl?: string, text?: string, mimeType?: string): Promise<ParsedReceipt> {
+  const parts: Array<Record<string, unknown>> = [];
+  
+  if (imageUrl) {
+    const imgRes = await fetch(imageUrl);
+    const imgBuffer = await imgRes.arrayBuffer();
+    const base64 = Buffer.from(imgBuffer).toString('base64');
+    parts.push({
+      inline_data: { mime_type: mimeType || 'image/jpeg', data: base64 },
+    });
+  }
+  
+  const textContent = text ? `${prompt}\n\nReceipt text:\n${text}` : prompt;
+  parts.push({ text: textContent });
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        systemInstruction: { parts: [{ text: RECEIPT_SYSTEM_PROMPT }] },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 500, responseMimeType: 'application/json' },
+      }),
+    }
+  );
+  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+  const data = await res.json();
+  const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  return JSON.parse(responseText);
+}
+
+export async function parseReceipt(opts: ParseReceiptOptions): Promise<ParsedReceipt> {
+  const prompt = buildReceiptPrompt();
+  
+  let result: ParsedReceipt;
+  switch (opts.provider) {
+    case 'openai':
+      result = await parseReceiptOpenAI(opts.apiKey, prompt, opts.imageUrl, opts.text);
+      break;
+    case 'anthropic':
+      result = await parseReceiptAnthropic(opts.apiKey, prompt, opts.imageUrl, opts.text, opts.mimeType);
+      break;
+    case 'gemini':
+      result = await parseReceiptGemini(opts.apiKey, prompt, opts.imageUrl, opts.text, opts.mimeType);
+      break;
+    default:
+      throw new Error(`Unknown provider: ${opts.provider}`);
+  }
+
+  // Validate/sanitize
+  return {
+    description: (result.description || '').replace(/<[^>]*>/g, '').substring(0, 500) || 'Receipt expense',
+    amount: typeof result.amount === 'number' && result.amount > 0 ? Math.round(result.amount * 100) / 100 : null,
+    vendor: (result.vendor || '').replace(/<[^>]*>/g, '').substring(0, 200) || '',
+    date: /^\d{4}-\d{2}-\d{2}$/.test(result.date) ? result.date : new Date().toISOString().split('T')[0],
+    category: ['food', 'drinks', 'transport', 'lodging', 'activities', 'tickets', 'groceries', 'other'].includes(result.category) ? result.category : 'other',
+  };
+}
