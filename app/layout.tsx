@@ -165,23 +165,23 @@ export default async function RootLayout({
             </Link>
             <div className="hidden md:flex items-center gap-6">
               <ThemeToggle />
-              <Link href="/" className="nav-link">
-                Home
+              <Link href="/travel-notes" className="nav-link">
+                Travel
+              </Link>
+              <Link href="/weather" className="nav-link">
+                Weather
               </Link>
               <Link href="/stay" className="nav-link">
                 Stay
+              </Link>
+              <Link href="/itinerary" className="nav-link">
+                Schedule
               </Link>
               <Link href="/things-to-do" className="nav-link">
                 Things to Do
               </Link>
               <Link href="/photos" className="nav-link">
                 Photos
-              </Link>
-              <Link href="/itinerary" className="nav-link">
-                Schedule
-              </Link>
-              <Link href="/travel-notes" className="nav-link">
-                Travel
               </Link>
               <Link href="/expenses" className="nav-link">
                 Expenses
@@ -238,20 +238,23 @@ export default async function RootLayout({
 
               {/* Nav links */}
               <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center">
+                <Link href="/travel-notes" className="nav-link text-sm">
+                  Travel
+                </Link>
+                <Link href="/weather" className="nav-link text-sm">
+                  Weather
+                </Link>
                 <Link href="/stay" className="nav-link text-sm">
                   Stay
+                </Link>
+                <Link href="/itinerary" className="nav-link text-sm">
+                  Schedule
                 </Link>
                 <Link href="/things-to-do" className="nav-link text-sm">
                   Things to Do
                 </Link>
                 <Link href="/photos" className="nav-link text-sm">
                   Photos
-                </Link>
-                <Link href="/itinerary" className="nav-link text-sm">
-                  Schedule
-                </Link>
-                <Link href="/travel-notes" className="nav-link text-sm">
-                  Travel
                 </Link>
                 <Link href="/expenses" className="nav-link text-sm">
                   Expenses

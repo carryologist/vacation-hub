@@ -36,13 +36,13 @@ const MobileNavigation = () => {
 
   const navLinks = [
     { href: '/', label: 'Home' },
+    { href: '/travel-notes', label: 'Travel' },
+    { href: '/weather', label: 'Weather' },
     { href: '/stay', label: 'Stay' },
+    { href: '/itinerary', label: 'Schedule' },
     { href: '/things-to-do', label: 'Things to Do' },
     { href: '/photos', label: 'Photos' },
-    { href: '/itinerary', label: 'Schedule' },
-    { href: '/travel-notes', label: 'Travel' },
     { href: '/expenses', label: 'Expenses' },
-    { href: '/weather', label: 'Weather' },
     { href: '/settings', label: 'Settings' },
   ]
 

@@ -18,20 +18,6 @@ interface Expense {
   created_at?: string;
 }
 
-interface Settlement {
-  from: string;
-  to: string;
-  amount: number;
-}
-
-interface SettlementData {
-  members: string[];
-  totals: Record<string, { paid: number; share: number; net: number }>;
-  settlements: Settlement[];
-  totalSpent: number;
-  expenseCount: number;
-}
-
 interface ParsedReceipt {
   description: string;
   amount: number | null;
@@ -82,8 +68,8 @@ export default function ExpensesClient({ tripName }: Props) {
   // Data state
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [members, setMembers] = useState<string[]>([]);
-  const [settlement, setSettlement] = useState<SettlementData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [globalSplitCount, setGlobalSplitCount] = useState(2);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -97,7 +83,6 @@ export default function ExpensesClient({ tripName }: Props) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("food");
-  const [splitCount, setSplitCount] = useState("2");
   const [vendor, setVendor] = useState("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
@@ -146,26 +131,67 @@ export default function ExpensesClient({ tripName }: Props) {
     }
   }, []);
 
-  const fetchSettlement = useCallback(async () => {
-    try {
-      const res = await fetch("/api/expenses/settle/");
-      if (!res.ok) return;
-      const data = await res.json();
-      setSettlement(data);
-    } catch {
-      // non-critical
-    }
-  }, []);
-
   useEffect(() => {
-    Promise.all([fetchExpenses(), fetchMembers(), fetchSettlement()]).then(() =>
+    Promise.all([fetchExpenses(), fetchMembers()]).then(() =>
       setLoading(false)
     );
-  }, [fetchExpenses, fetchMembers, fetchSettlement]);
+  }, [fetchExpenses, fetchMembers]);
 
   const refreshAll = async () => {
-    await Promise.all([fetchExpenses(), fetchMembers(), fetchSettlement()]);
+    await Promise.all([fetchExpenses(), fetchMembers()]);
   };
+
+  // Client-side settlement computation
+  const settlement = useMemo(() => {
+    if (expenses.length === 0) return null;
+
+    const totalSpent = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const perPersonShare = totalSpent / globalSplitCount;
+    const membersList = [...new Set(expenses.map(e => e.paid_by))].sort();
+
+    const totals: Record<string, { paid: number; share: number; net: number }> = {};
+    for (const member of membersList) {
+      const paid = expenses
+        .filter(e => e.paid_by === member)
+        .reduce((s, e) => s + Number(e.amount), 0);
+      totals[member] = {
+        paid: Math.round(paid * 100) / 100,
+        share: Math.round(perPersonShare * 100) / 100,
+        net: Math.round((paid - perPersonShare) * 100) / 100,
+      };
+    }
+
+    // Greedy min-transfer settlement
+    const balances = membersList.map(m => ({ name: m, balance: totals[m].net }));
+    const settlements: { from: string; to: string; amount: number }[] = [];
+    balances.sort((a, b) => a.balance - b.balance);
+
+    let i = 0, j = balances.length - 1;
+    while (i < j) {
+      if (Math.abs(balances[i].balance) < 0.01) { i++; continue; }
+      if (Math.abs(balances[j].balance) < 0.01) { j--; continue; }
+      const amount = Math.min(Math.abs(balances[i].balance), balances[j].balance);
+      if (amount >= 0.01) {
+        settlements.push({
+          from: balances[i].name,
+          to: balances[j].name,
+          amount: Math.round(amount * 100) / 100,
+        });
+      }
+      balances[i].balance += amount;
+      balances[j].balance -= amount;
+      if (Math.abs(balances[i].balance) < 0.01) i++;
+      if (Math.abs(balances[j].balance) < 0.01) j--;
+    }
+
+    return {
+      members: membersList,
+      totals,
+      settlements,
+      totalSpent: Math.round(totalSpent * 100) / 100,
+      expenseCount: expenses.length,
+    };
+  }, [expenses, globalSplitCount]);
 
   // Payer logic
   const effectivePayer = selectedPayer === "__new__" ? newPayerName.trim() : selectedPayer;
@@ -237,7 +263,6 @@ export default function ExpensesClient({ tripName }: Props) {
     setDescription("");
     setAmount("");
     setCategory("food");
-    setSplitCount("2");
     setVendor("");
     setExpenseDate(new Date().toISOString().split("T")[0]);
     setNotes("");
@@ -271,7 +296,7 @@ export default function ExpensesClient({ tripName }: Props) {
       description: description.trim(),
       amount: Number(amount),
       paid_by: effectivePayer,
-      split_count: Number(splitCount) || 2,
+      split_count: 1,
       category,
       vendor: vendor.trim() || undefined,
       expense_date: expenseDate,
@@ -322,7 +347,6 @@ export default function ExpensesClient({ tripName }: Props) {
     setAmount(String(expense.amount));
     setSelectedPayer(expense.paid_by);
     setCategory(expense.category);
-    setSplitCount(String(expense.split_count));
     setVendor(expense.vendor || "");
     setExpenseDate(expense.expense_date);
     setNotes(expense.notes || "");
@@ -468,14 +492,31 @@ export default function ExpensesClient({ tripName }: Props) {
             className="text-2xl font-bold"
             style={{ color: "var(--text-primary)" }}
           >
-            {uniqueMembers.length > 0
-              ? formatCurrency(totalSpent / uniqueMembers.length)
-              : "$0"}
+            {formatCurrency(totalSpent / globalSplitCount)}
           </p>
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Per Person
           </p>
         </div>
+      </div>
+
+      {/* Global Split Control */}
+      <div className="flex items-center justify-center gap-3" style={{ color: 'var(--text-secondary)' }}>
+        <label className="text-sm font-medium">Splitting between</label>
+        <input
+          type="number"
+          min="1"
+          max="100"
+          value={globalSplitCount}
+          onChange={(e) => setGlobalSplitCount(Math.max(1, Number(e.target.value) || 1))}
+          className="w-16 p-2 rounded-lg text-center font-bold"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-primary)',
+          }}
+        />
+        <span className="text-sm">people</span>
       </div>
 
       {/* Action Buttons */}
@@ -841,8 +882,8 @@ export default function ExpensesClient({ tripName }: Props) {
             </div>
           </div>
 
-          {/* Category + Split + Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Category + Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label
                 className="block text-sm font-medium mb-1"
@@ -866,35 +907,6 @@ export default function ExpensesClient({ tripName }: Props) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label
-                className="block text-sm font-medium mb-1"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Split between
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={splitCount}
-                  onChange={(e) => setSplitCount(e.target.value)}
-                  className="w-full p-2.5 rounded-lg text-sm"
-                  style={{
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-                <span
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  people
-                </span>
-              </div>
             </div>
             <div>
               <label
@@ -1088,9 +1100,6 @@ export default function ExpensesClient({ tripName }: Props) {
                         <span>{expense.paid_by}</span>
                         <span>{formatDate(expense.expense_date)}</span>
                         {expense.vendor && <span>@ {expense.vendor}</span>}
-                        {expense.split_count > 1 && (
-                          <span>÷ {expense.split_count}</span>
-                        )}
                       </div>
                       {expense.notes && (
                         <p
@@ -1110,17 +1119,7 @@ export default function ExpensesClient({ tripName }: Props) {
                       >
                         {formatCurrency(Number(expense.amount))}
                       </p>
-                      {expense.split_count > 1 && (
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {formatCurrency(
-                            Number(expense.amount) / expense.split_count
-                          )}
-                          /ea
-                        </p>
-                      )}
+
                     </div>
                   </div>
 
